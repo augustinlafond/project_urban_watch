@@ -26,12 +26,20 @@ class IndexCalculator:#calcul le spectre d'indice
     def mndwi(B3: np.ndarray, B11: np.ndarray) -> np.ndarray:
         return (B3 - B11) / (B3 + B11 + 1e-6)
 
+class NormalizationConfig:
+    #reusable normalization configuration
+    def __init__(self, gamma: float = 0.8, p_low: int = 2, p_high: int = 98):
+        self.gamma = gamma
+        self.p_low = p_low
+        self.p_high = p_high
 
 class ImageNormalizer:
+    @staticmethod
     def normalize_minmax(image : np.ndarray) -> np.ndarray:
         #normalization to [0,1]
         return (image - image.min()) / (image.max() - image.min() + 1e-6)
 
+    @staticmethod
     def normalize_percentile(image: np.ndarray, p_low: int = 2, p_high: int = 98) -> np.ndarray:
         #percentile based normalization avoids outliers
         #args : image = imput image / p_low =Lower
@@ -39,9 +47,6 @@ class ImageNormalizer:
         p98 = np.percentile(image, p_high)
         return np.clip((image-p2)/ (p98 -p2 +1e-6), 0, 1)
 
-class NormalizationConfig:
-    #reusable normalization configuration
-    def __init__(self, gamma: float = 0.8, p_low: int = 2, p_high: int = 98):
-        self.gamma = gamma
-        self.p_low = p_low
-        self.p_high = p_high
+    @staticmethod
+    def gamma_correction(image: np.ndarray, gamma: float = 0.8) -> np.ndarray:
+        return np.clip(image ** gamma, 0, 1)
