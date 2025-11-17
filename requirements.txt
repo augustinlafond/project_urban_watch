@@ -1,0 +1,7 @@
+sentinelhub
+matplotlib
+numpy
+rasterio
+folium
+dotenv
+pandas
