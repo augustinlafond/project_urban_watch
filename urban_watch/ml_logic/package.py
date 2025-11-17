@@ -38,3 +38,10 @@ class ImageNormalizer:
         p2= np.percentile(image, p_low)
         p98 = np.percentile(image, p_high)
         return np.clip((image-p2)/ (p98 -p2 +1e-6), 0, 1)
+
+class NormalizationConfig:
+    #reusable normalization configuration
+    def __init__(self, gamma: float = 0.8, p_low: int = 2, p_high: int = 98):
+        self.gamma = gamma
+        self.p_low = p_low
+        self.p_high = p_high
