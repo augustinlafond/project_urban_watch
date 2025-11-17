@@ -6,3 +6,4 @@ folium
 dotenv
 pandas
 pyproj
+scikit-learn
