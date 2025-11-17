@@ -7,3 +7,6 @@ dotenv
 pandas
 pyproj
 scikit-learn
+Requests
+Streamlit
+MLFlow
