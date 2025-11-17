@@ -15,3 +15,6 @@ class IndexCalculator:#calcul le spectre d'indice
 
     def ndbi(B11: np.ndarray, B8:np.ndarray) ->np.ndarray:
         return (B11 - B8) / (B11 + B8 + 1e-6)
+
+    def ndwi(B8: np.ndarray, B11: np.ndarray) ->np.ndarray:
+        return (B8 - B11) / (B8 + B11 + 1e-6)
