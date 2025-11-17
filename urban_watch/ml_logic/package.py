@@ -33,6 +33,9 @@ class NormalizationConfig:
         self.p_low = p_low
         self.p_high = p_high
 
+    def __repr__(self):
+        return f"NormalizationConfig(gamma={self.gamma}, p_low={self.p_low}, p_high={self.p_high})"
+
 class ImageNormalizer:
     @staticmethod
     def normalize_minmax(image : np.ndarray) -> np.ndarray:
@@ -58,4 +61,3 @@ class ImageNormalizer:
 
         normalized = ImageNormalizer.normalize_percentile(image, config.p_low, config.p_high)
         return ImageNormalizer.gamma_correction(normalized, config.gamma)
-
