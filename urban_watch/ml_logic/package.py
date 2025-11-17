@@ -50,3 +50,12 @@ class ImageNormalizer:
     @staticmethod
     def gamma_correction(image: np.ndarray, gamma: float = 0.8) -> np.ndarray:
         return np.clip(image ** gamma, 0, 1)
+
+    @staticmethod
+    def normalize_full (image: np.ndarray, config: Optional[NormalizationConfig] = None ) -> np.ndarray:
+        if config is None:
+            config = NormalizationConfig() #create config by default
+
+        normalized = ImageNormalizer.normalize_percentile(image, config.p_low, config.p_high)
+        return ImageNormalizer.gamma_correction(normalized, config.gamma)
+
