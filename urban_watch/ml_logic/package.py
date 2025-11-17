@@ -24,3 +24,10 @@ class ImageNormalizer:
     def normalize_minmax(image : np.ndarray) -> np.ndarray:
         #normalization to [0,1]
         return (image - image.min()) / (image.max() - image.min() + 1e-6)
+
+    def normalize_percentile(image: np.ndarray, p_low: int = 2, p_high: int = 98) -> np.ndarray:
+        #percentile based normalization avoids outliers
+        #args : image = imput image / p_low =Lower
+        p2= np.percentile(image, p_low)
+        p98 = np.percentile(image, p_high)
+        return np.clip((image-p2)/ (p98 -p2 +1e-6), 0.1)
