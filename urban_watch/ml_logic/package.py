@@ -18,3 +18,9 @@ class IndexCalculator:#calcul le spectre d'indice
 
     def ndwi(B8: np.ndarray, B11: np.ndarray) ->np.ndarray:
         return (B8 - B11) / (B8 + B11 + 1e-6)
+
+
+class ImageNormalizer:
+    def normalize_minmax(image : np.ndarray) -> np.ndarray:
+        #normalization to [0,1]
+        return (image - image.min()) / (image.max() - image.min() + 1e-6)
