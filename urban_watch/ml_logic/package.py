@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Tuple, Optional
+from s2cloudless import S2PixelCloudDetector
 
 #____________
 #class 1, IndexCalculator /calculate spectral (NDVI, NDBI and others)
@@ -198,51 +199,22 @@ class ImageNormalizer:
 #__
 
 class CloudMasker:
-    SCL_CLASSES = {
-        0: "No Data",
-        1: "Saturated",
-        2: "Dark Area",
-        3: "Cloud Shadow",
-        4: "Vegetation",
-        5: "Non-Vegetated",
-        6: "Water",
-        7: "Unclassified",
-        8: "Medium probability cloud",
-        9: "High probability cloud",
-        10: "Thin cirrus cloud",
-        11: "Snow/Ice"
-    }
-    CLASS_MASK = [2,3,8,9,10,11]
+    def __init__(self, threshold: float = 0.4, average_over: int = 4, dilation_size: int = 2):
+        self.detector = S2PixelCloudDetector(threshold=threshold,
+                                             average_over =average_over,
+                                             dilation_size=dilation_size)
 
-    @staticmethod
-    def detect_clouds_scl(image_with_scl : np.ndarray, scl_band_idx: int = 5, class_mask: list = None) -> np.ndarray:
-        if class_mask is None:
-            class_mask = CloudMasker.CLASS_MASK
-        SCL = image_with_scl[:,:,scl_band_idx].astype(int)
-        cloud_mask = np.isin(SCL, class_mask)
-        return cloud_mask
+    def detect_clouds(self, image: np.ndarray) -> np.ndarray:
+            """
+            image : np.ndarray shape (H,W,4) = B02,B03,B04,B08
+            retourne mask booléen
+            """
+            cloud_probs = self.detector.get_cloud_probability_maps(image)
+            mask = cloud_probs > self.detector.threshold
+            return mask
 
-    @staticmethod
-    def apply_mask(image: np.ndarray, mask : np.ndarray, fill_value : float = 0.0) -> np.ndarray:
-        image_masked = image.copy().astype(float)
-        image_masked[mask] = fill_value
-        return image_masked
 
-    @staticmethod
-    def get_cloud_percentage(mask: np.ndarray) -> float:
-        return (mask.sum()/mask.size) * 100
 
-    @staticmethod
-    def scl_info(image_with_scl: np.ndarray, scl_band_idx : int = 5) -> None :
-        SCL = image_with_scl[:,:,scl_band_idx].astype(int)
-        print(SCL)
-        print("-" * 50)
-        for class_id, class_name in CloudMasker.SCL_CLASSES.items():
-            count = (SCL == class_id).sum()
-            percentage = (count / SCL.size) * 100
-            if count > 0:
-                print(f"{class_name:20s}: {count:8d} pixels({percentage:5.1f}%)")
-        print('-' * 50)
 
 #___
 #data cleaning
