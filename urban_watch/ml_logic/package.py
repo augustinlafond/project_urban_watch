@@ -233,4 +233,17 @@ def get_cloud_percentage(mask: np.ndarray) -> float:
     return (mask.sum()/mask.size) * 100
 
 @staticmethod
-def print
+def scl_info(image_with_scl: np.ndarray, scl_band_idx : int = 5) -> 5 :
+    SCL = image_with_scl[:,:,scl_band_idx].astype(int)
+    print(SCL)
+    print("-" * 50)
+    for class_id, class_name in CloudMasker.SCL_CLASSES.items():
+        coutn = (SCL == class_id).sum()
+        percentage = (count / SCL.size) * 100
+        if count > 0:
+            print(f"{class_name:20s}: {count:8d} pixels({percentage:5.1f}%)")
+    print('-' * 50)
+
+#___
+#data cleaning
+#__
