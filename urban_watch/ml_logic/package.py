@@ -227,3 +227,10 @@ def apply_mask(image: np.ndarray, mask : np.ndarray, fill_value : float = 0.0) -
     image_masked = image.copy().astype(float)
     image_masked[mask] = fill_value
     return image_masked
+
+@staticmethod
+def get_cloud_percentage(mask: np.ndarray) -> float:
+    return (mask.sum()/mask.size) * 100
+
+@staticmethod
+def print
