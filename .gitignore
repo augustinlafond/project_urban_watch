@@ -1,2 +1,8 @@
 raw_data/
 .env
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.egg-info/
