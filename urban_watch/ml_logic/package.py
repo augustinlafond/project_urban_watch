@@ -222,4 +222,8 @@ def detect_clouds_scl(image_with_scl : np.ndarray, scl_band_idx: int = 5, class_
     cloud_mask = np.isin(SCL, class_mask)
     return cloud_mask
 
-
+@staticmethod
+def apply_mask(image: np.ndarray, mask : np.ndarray, fill_value : float = 0.0) -> np.ndarray:
+    image_masked = image.copy().astype(float)
+    image_masked[mask] = fill_value
+    return image_masked
