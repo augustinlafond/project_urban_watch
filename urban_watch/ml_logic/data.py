@@ -79,7 +79,7 @@ def get_data(list_bbox):
         function setup() {
             return {
                 input: ["B01","B02","B03","B04","B05","B06","B08","B8A","B11","B12"],
-                output: { bands: 10 }
+                output: { bands: 10, sampleType: "FLOAT32"}
             };
         }
         function evaluatePixel(sample) {
@@ -98,45 +98,48 @@ def get_data(list_bbox):
         }
         """
 
-        request = SentinelHubRequest(
-            evalscript=evalscript,
-            input_data=[SentinelHubRequest.input_data(
-                DataCollection.SENTINEL2_L2A,
-                time_interval=("2025-08-01", "2025-08-30")
-            )],
-            responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
-            bbox=bbox,
-            resolution=(10, 10),
-            config=config
-        )
+        try:
+            request = SentinelHubRequest(
+                evalscript=evalscript,
+                input_data=[SentinelHubRequest.input_data(
+                    DataCollection.SENTINEL2_L2A,
+                    time_interval=("2025-06-01", "2025-09-30"),
+                )],
+                responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
+                bbox=bbox,
+                resolution=(10, 10),
+                config=config
+            )
+            image = request.get_data()[0]  # (H, W, 10)
+            images.append(image)
 
-        image = request.get_data()[0]  # (H, W, 10)
-        images.append(image)
+            # 3) Create tile folder
+            tile_dir = os.path.join(RAW_DATA_DIR, f"tile_{i}")
+            os.makedirs(tile_dir, exist_ok=True)
 
-        # 3) Create tile folder
-        tile_dir = os.path.join(RAW_DATA_DIR, f"tile_{i}")
-        os.makedirs(tile_dir, exist_ok=True)
+            # 4) Save numpy array
+            np.save(os.path.join(tile_dir, "X.npy"), image)
 
-        # 4) Save numpy array
-        np.save(os.path.join(tile_dir, "X.npy"), image)
+            # 5) Save metadata
+            meta = {
+                "lat": lat,
+                "lon": lon,
+                "bbox": list(bbox),
+                "bbox_crs": str(bbox.crs),
+                "bands": ["B01","B02","B03","B04","B05","B06","B08","B8A","B11","B12"],
+                "resolution": 10
+            }
 
-        # 5) Save metadata
-        meta = {
-            "lat": lat,
-            "lon": lon,
-            "bbox": list(bbox),
-            "bbox_crs": str(bbox.crs),
-            "bands": ["B01","B02","B03","B04","B05","B06","B08","B8A","B11","B12"],
-            "resolution": 10
-        }
+            with open(os.path.join(tile_dir, "meta.json"), "w") as f:
+                json.dump(meta, f, indent=4)
 
-        with open(os.path.join(tile_dir, "meta.json"), "w") as f:
-            json.dump(meta, f, indent=4)
+            metadata_list.append(meta)
+            print(f"✔ Saved tile {i} in {tile_dir}")
 
-        metadata_list.append(meta)
+        except Exception as e:
+            print(f"  ❌ Error downloading tile {i}: {str(e)}")
 
-        print(f"✔ Saved tile {i} in {tile_dir}")
-
+    print(f"\n✅ Downloaded {len(images)} images")
     return images, metadata_list
 
 
