@@ -10,3 +10,4 @@ scikit-learn
 Requests
 Streamlit
 MLFlow
+opencv-python-headless
