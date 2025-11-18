@@ -248,7 +248,8 @@ class CloudMasker:
 #_____________
 #data cleaning
 #_____________
-class Datacleaner: #normalise les bandes de 0 a 1
+class DataCleaner: #normalise les bandes de 0 a 1
+
     def normalize_bands(self, image: np.ndarray) -> np.ndarray:
         img = image.astype("float32")
         min_val= np.nanmin(img, axis=(0,1), keepdims=True )
@@ -261,3 +262,36 @@ class Datacleaner: #normalise les bandes de 0 a 1
         mean = np.nanmean(image, axis=(0,1), keepdims=True)
         std= np.nanstd(image, axis=(0,1), keepdims=True) + 1e-6
         return (image-mean)/std
+
+
+#_____________
+#full pipeline
+#_____________
+
+def preprocess_image(img):
+    cleaner = DataCleaner()
+    cloud_detector = CloudMasker()
+    img_norm = cleaner.normalize_bands(img) #normalisation bands 0-1
+    cloud_mask = cloud_detector.detect_clouds(img_norm) #s2cloudless
+    img_masked = cloud_detector.apply_mask(img_norm, cloud_mask, fill_value=np.nan)
+    '''masquage des pixel nuageux'''
+
+    B3  = img_masked[:, :, CloudMasker.BAND_IDX["B03"]]
+    B4  = img_masked[:, :, CloudMasker.BAND_IDX["B04"]]
+    B8  = img_masked[:, :, CloudMasker.BAND_IDX["B08"]]
+    B11 = img_masked[:, :, CloudMasker.BAND_IDX["B11"]]
+    '''ici les bands principales'''
+
+    ndvi  = IndexCalculator.ndvi(B4,  B8)
+    ndbi  = IndexCalculator.ndbi(B11, B8)
+    mndwi = IndexCalculator.mndwi(B3, B11)
+
+    ndvi = ndvi[..., np.newaxis]
+    ndbi = ndbi[..., np.newaxis]
+    mndwi = mndwi[..., np.newaxis]
+    #ici cest pour concaténer 13 bandes
+
+    img_13 = np.concatenate([img_masked, ndvi, ndbi,mndwi], axis=-1)
+
+    img_std = cleaner.standardize(img_13)
+    return img_std
