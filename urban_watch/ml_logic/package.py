@@ -196,7 +196,7 @@ class ImageNormalizer:
 
 #___
 #cloud masking
-#__
+#__________________________________
 
 class CloudMasker:
 
@@ -244,3 +244,20 @@ class CloudMasker:
     @staticmethod
     def get_cloud_percentage(mask: np.ndarray) -> float:
         return (mask.sum() / mask.size) * 100
+
+#_____________
+#data cleaning
+#_____________
+class Datacleaner: #normalise les bandes de 0 a 1
+    def normalize_bands(self, image: np.ndarray) -> np.ndarray:
+        img = image.astype("float32")
+        min_val= np.nanmin(img, axis=(0,1), keepdims=True )
+        max_val= np.nanmax(img, axis=(0,1), keepdims=True )
+        return (img - min_val) / (max_val - min_val  + 1e-6)
+
+    def standardize(self, image: np.ndarray) -> np.ndarray:
+        #je voulais importer StandardScaler ici de scikitlearn, surtout pas !!!
+        #IMAGE 2d (pixels x features) + de toute facon impossible avec 3 dimensions
+        mean = np.nanmean(image, axis=(0,1), keepdims=True)
+        std= np.nanstd(image, axis=(0,1), keepdims=True) + 1e-6
+        return (image-mean)/std
