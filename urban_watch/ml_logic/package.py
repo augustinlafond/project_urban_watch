@@ -192,3 +192,34 @@ class ImageNormalizer:
             config = NormalizationConfig(gamma=0.5, p_low=3, p_high=97)
             normalized_image = ImageNormalizer.normalize_full(image, config)
     """
+
+#___
+#cloud masking
+#__
+
+class CloudMasker:
+    SCL_CLASSES = {
+        0: "No Data",
+        1: "Saturated",
+        2: "Dark Area",
+        3: "Cloud Shadow",
+        4: "Vegetation",
+        5: "Non-Vegetated",
+        6: "Water",
+        7: "Unclassified",
+        8: "Medium probability cloud",
+        9: "High probability cloud",
+        10: "Thin cirrus cloud",
+        11: "Snow/Ice"
+    }
+    CLASS_MASK = [2,3,8,9,10,11]
+
+@staticmethod
+def detect_clouds_scl(image_with_scl : np.ndarray, scl_band_idx: int = 5, class_mask: list = None) -> np.ndarray:
+    if class_mask is None:
+        class_mask = CloudMasker.CLASS_MASK
+    SCL = image_with_scl[:,:,scl_band_idx].astype(int)
+    cloud_mask = np.isin(SCL, class_mask)
+    return cloud_mask
+
+
