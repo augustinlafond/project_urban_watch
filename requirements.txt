@@ -11,3 +11,4 @@ Requests
 Streamlit
 MLFlow
 opencv-python-headless
+s2cloudless
