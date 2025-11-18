@@ -9,7 +9,7 @@ import rasterio
 import folium
 from pyproj import CRS as pyCRS
 import math
-
+import cv2  # pour le resampling SCL
 
 def make_bbox_global(lat, lon, km_size=3):
     """
@@ -78,12 +78,12 @@ def get_data(list_bbox):
         //VERSION=3
         function setup() {
             return {
-                input: ["B02", "B03", "B04", "B08", "B11"],
-                output: { bands: 5 }
+                input: ["B02", "B03", "B04", "B08", "B11","SCL"],
+                output: { bands: 6 }
             };
         }
         function evaluatePixel(sample) {
-            return [sample.B02, sample.B03, sample.B04, sample.B08, sample.B11];
+            return [sample.B02, sample.B03, sample.B04, sample.B08, sample.B11, sample.SCL];
         }
         """
 
@@ -99,8 +99,18 @@ def get_data(list_bbox):
             config=config
         )
 
-        image = request.get_data()[0]  # (H, W, 5)
+        image = request.get_data()[0]  # (H, W, 6)
         images.append(image)
+
+        #-----
+        #resample SCL a 10m
+        #-----
+        rgbnir = image[..., :5]
+        scl = image[..., 5]
+        height, width = rgbnir.shape[:2]
+        scl_resampled = cv2.resize(scl, (width, height), interpolation=cv2.INTER_NEAREST)
+        image_final= np.dstack([rgbnir, scl_resampled])
+        image = image_final
 
         # 3) Create tile folder
         tile_dir = os.path.join(RAW_DATA_DIR, f"tile_{i}")
@@ -115,7 +125,7 @@ def get_data(list_bbox):
             "lon": lon,
             "bbox": list(bbox),
             "bbox_crs": str(bbox.crs),
-            "bands": ["B02", "B03", "B04", "B08", "B11"],
+            "bands": ["B02", "B03", "B04", "B08", "B11","SCL"],
             "resolution": 10
         }
 
