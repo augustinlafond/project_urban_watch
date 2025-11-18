@@ -199,34 +199,48 @@ class ImageNormalizer:
 #__
 
 class CloudMasker:
-    def __init__(self, threshold: float = 0.4, average_over: int = 4, dilation_size: int = 2):
+
+
+    BAND_IDX = {
+        "B01": 0,   # Coastal aerosol
+        "B02": 1,   # Blue
+        "B03": 2,   # Green
+        "B04": 3,   # Red
+        "B05": 4,   # Vegetation Red Edge
+        "B06": 5,   # Vegetation Red Edge
+        "B08": 6,   # NIR
+        "B8A": 7,   # Vegetation Red Edge
+        "B11": 8,   # SWIR
+        "B12": 9    # SWIR
+    }
+
+    def __init__(self, threshold: float = 0.5, average_over: int = 4, dilation_size: int = 1):
         self.detector = S2PixelCloudDetector(threshold=threshold,
                                              average_over =average_over,
-                                             dilation_size=dilation_size)
+                                             dilation_size=dilation_size,
+                                             all_bands=False)
 
     def detect_clouds(self, image: np.ndarray) -> np.ndarray:
             """
-            image : np.ndarray shape (H,W,4) = B02,B03,B04,B08
+            image : np.ndarray shape (H,W,10) = B01,B02,B03,B04,B05,B06,B08,B8A,B11,B12
             retourne mask booléen
             """
-            cloud_probs = self.detector.get_cloud_probability_maps(image)
-            mask = cloud_probs > self.detector.threshold
+
+            if image.ndim == 3:
+                image_batch = image[np.newaxis, :, :, :]
+            else:
+                image_batch = image
+
+            cloud_probs_batch = self.detector.get_cloud_probability_maps(image_batch)  # shape (1,H,W)
+            mask = cloud_probs_batch[0] > self.detector.threshold
             return mask
 
+    @staticmethod
+    def apply_mask(image: np.ndarray, mask: np.ndarray, fill_value: float = 0.0) -> np.ndarray:
+        image_masked = image.copy().astype(float)
+        image_masked[mask] = fill_value
+        return image_masked
 
-
-
-#___
-#data cleaning
-#__
-
-def clean_data(image_with_scl: np.ndarray, use_scl: bool = True) -> Tuple[np.ndarray, np.ndarray]:
-    print("cleaning data : dectecting and masking clouds")
-
-    cloud_mask = CloudMasker.detect_clouds_scl(image_with_scl)
-    CloudMasker.scl_info(image_with_scl)
-    image_5bands = image_with_scl[:,:,:5].copy().astype(float)
-    image_cleaned = CloudMasker.apply_mask(image_5bands, cloud_mask, fill_value = 0.0)
-    cloud_pct = CloudMasker.get_cloud_percentage(cloud_mask)
-    print(f" Masked{cloud_pct:.1f}%invalid pixels")
-    return image_cleaned, cloud_mask
+    @staticmethod
+    def get_cloud_percentage(mask: np.ndarray) -> float:
+        return (mask.sum() / mask.size) * 100
