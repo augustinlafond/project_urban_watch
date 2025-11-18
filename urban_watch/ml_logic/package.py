@@ -252,8 +252,8 @@ class DataCleaner: #normalise les bandes de 0 a 1
 
     def normalize_bands(self, image: np.ndarray) -> np.ndarray:
         img = image.astype("float32")
-        min_val= np.nanmin(img, axis=(0,1), keepdims=True )
-        max_val= np.nanmax(img, axis=(0,1), keepdims=True )
+        min_val= np.nanmin(img, axis=(0,1), keepdims=True ) #keepdims car dim en 3
+        max_val= np.nanmax(img, axis=(0,1), keepdims=True )#shape(,C) avec True (1,1,C)
         return (img - min_val) / (max_val - min_val  + 1e-6)
 
     def standardize(self, image: np.ndarray) -> np.ndarray:
@@ -280,7 +280,7 @@ def preprocess_image(img):
     B4  = img_masked[:, :, CloudMasker.BAND_IDX["B04"]]
     B8  = img_masked[:, :, CloudMasker.BAND_IDX["B08"]]
     B11 = img_masked[:, :, CloudMasker.BAND_IDX["B11"]]
-    '''ici les bands principales'''
+    '''ici les bands principales pour les indic car on en a besoin //extraction//'''
 
     ndvi  = IndexCalculator.ndvi(B4,  B8)
     ndbi  = IndexCalculator.ndbi(B11, B8)
