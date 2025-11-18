@@ -78,12 +78,23 @@ def get_data(list_bbox):
         //VERSION=3
         function setup() {
             return {
-                input: ["B02", "B03", "B04", "B08", "B11","SCL"],
-                output: { bands: 6 }
+                input: ["B01","B02","B03","B04","B05","B06","B08","B8A","B11","B12"],
+                output: { bands: 10 }
             };
         }
         function evaluatePixel(sample) {
-            return [sample.B02, sample.B03, sample.B04, sample.B08, sample.B11, sample.SCL];
+            return [
+            sample.B01,
+            sample.B02,
+            sample.B03,
+            sample.B04,
+            sample.B05,
+            sample.B06,
+            sample.B08,
+            sample.B8A,
+            sample.B11,
+            sample.B12
+        ];
         }
         """
 
@@ -99,18 +110,8 @@ def get_data(list_bbox):
             config=config
         )
 
-        image = request.get_data()[0]  # (H, W, 6)
+        image = request.get_data()[0]  # (H, W, 10)
         images.append(image)
-
-        #-----
-        #resample SCL a 10m
-        #-----
-        rgbnir = image[..., :5]
-        scl = image[..., 5]
-        height, width = rgbnir.shape[:2]
-        scl_resampled = cv2.resize(scl, (width, height), interpolation=cv2.INTER_NEAREST)
-        image_final= np.dstack([rgbnir, scl_resampled])
-        image = image_final
 
         # 3) Create tile folder
         tile_dir = os.path.join(RAW_DATA_DIR, f"tile_{i}")
@@ -125,7 +126,7 @@ def get_data(list_bbox):
             "lon": lon,
             "bbox": list(bbox),
             "bbox_crs": str(bbox.crs),
-            "bands": ["B02", "B03", "B04", "B08", "B11","SCL"],
+            "bands": ["B01","B02","B03","B04","B05","B06","B08","B8A","B11","B12"],
             "resolution": 10
         }
 
@@ -179,6 +180,6 @@ def load_data(raw_data_dir=RAW_DATA_DIR):
         meta_list.append(meta)
 
     # convertit la liste en numpy array
-    X_array = np.stack(X_list, axis=0)   # shape = (n_tiles, 512, 512, 5)
+    X_array = np.stack(X_list, axis=0)   # shape = (n_tiles, H, W, 10)
 
     return X_array, meta_list
