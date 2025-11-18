@@ -1,8 +1,28 @@
-raw_data/
+# ---- Environment / Secrets ----
 .env
+.env.*
+*.env
 .venv/
+venv/
+
+# ---- Raw data ----
+raw_data/
+
+# ---- Python ----
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# ---- Build & Egg ----
 build/
 dist/
 *.egg-info/
+
+# ---- Notebooks ----
+*.ipynb_checkpoints/
+
+# ---- OS / Editor ----
+.DS_Store
+**/.DS_Store
+.python-version
