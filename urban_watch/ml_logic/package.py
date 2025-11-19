@@ -263,21 +263,23 @@ class DataCleaner: #normalise les bandes de 0 a 1
         std= np.nanstd(image, axis=(0,1), keepdims=True) + 1e-6
         return (image-mean)/std
 
-    def remove_nan_pixel(image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        if image.ndim == 3:
-            H, W, C = image.shape
-            image_flat = image.reshape(-1,C)
-        else:
-            image_flat = image
-        mask_valid_flat = ~np.isnan(image_flat).any(axis=-1)
-        image_clean= image_flat[mask_valid_flat]
+    # @staticmethod
+    # def remove_nan_pixel(image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    #     if image.ndim == 3:
+    #         H, W, C = image.shape
+    #         image_flat = image.reshape(-1,C)
+    #     else:
+    #         image_flat = image
 
-        if image.ndim == 3:
-            mask_valid = mask_valid_flat.reshape(H, W)
-        else:
-            mask_valid = mask_valid_flat
+    #     mask_valid_flat = ~np.isnan(image_flat).any(axis=-1)
+    #     image_clean= image_flat[mask_valid_flat]
 
-        return image_clean, mask_valid
+    #     if image.ndim == 3:
+    #         mask_valid = mask_valid_flat.reshape(H, W)
+    #     else:
+    #         mask_valid = mask_valid_flat
+
+    #     return image_clean, mask_valid
 
 
 #_____________
@@ -313,8 +315,6 @@ def preprocess_image(img, remove_nan=False):
     img_13 = np.concatenate([img_masked, ndvi, ndbi,mndwi], axis=-1)
 
     img_std = cleaner.standardize(img_13)
-
-    if remove_nan:
-        img_std, _ = cleaner.remove_nan_pixel(img_std)
-
-    return img_std
+    mask_valid = ~np.isnan(img_std).any(axis=-1)
+    X_processed = img_std[mask_valid]
+    return X_processed
