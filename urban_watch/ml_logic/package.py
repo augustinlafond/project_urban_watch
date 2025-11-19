@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Tuple, Optional
+from s2cloudless import S2PixelCloudDetector
 
 #____________
 #class 1, IndexCalculator /calculate spectral (NDVI, NDBI and others)
@@ -192,3 +193,128 @@ class ImageNormalizer:
             config = NormalizationConfig(gamma=0.5, p_low=3, p_high=97)
             normalized_image = ImageNormalizer.normalize_full(image, config)
     """
+
+#___
+#cloud masking
+#__________________________________
+
+class CloudMasker:
+
+
+    BAND_IDX = {
+        "B01": 0,   # Coastal aerosol
+        "B02": 1,   # Blue
+        "B03": 2,   # Green
+        "B04": 3,   # Red
+        "B05": 4,   # Vegetation Red Edge
+        "B06": 5,   # Vegetation Red Edge
+        "B08": 6,   # NIR
+        "B8A": 7,   # Vegetation Red Edge
+        "B11": 8,   # SWIR
+        "B12": 9    # SWIR
+    }
+
+    def __init__(self, threshold: float = 0.5, average_over: int = 4, dilation_size: int = 1):
+        self.detector = S2PixelCloudDetector(threshold=threshold,
+                                             average_over =average_over,
+                                             dilation_size=dilation_size,
+                                             all_bands=False)
+
+    def detect_clouds(self, image: np.ndarray) -> np.ndarray:
+            """
+            image : np.ndarray shape (H,W,10) = B01,B02,B03,B04,B05,B06,B08,B8A,B11,B12
+            retourne mask booléen
+            """
+
+            if image.ndim == 3:
+                image_batch = image[np.newaxis, :, :, :]
+            else:
+                image_batch = image
+
+            cloud_probs_batch = self.detector.get_cloud_probability_maps(image_batch)  # shape (1,H,W)
+            mask = cloud_probs_batch[0] > self.detector.threshold
+            return mask
+
+    @staticmethod
+    def apply_mask(image: np.ndarray, mask: np.ndarray, fill_value: float = 0.0) -> np.ndarray:
+        image_masked = image.copy().astype(float)
+        image_masked[mask] = fill_value
+        return image_masked
+
+    @staticmethod
+    def get_cloud_percentage(mask: np.ndarray) -> float:
+        return (mask.sum() / mask.size) * 100
+
+#_____________
+#data cleaning
+#_____________
+class DataCleaner: #normalise les bandes de 0 a 1
+
+    def normalize_bands(self, image: np.ndarray) -> np.ndarray:
+        img = image.astype("float32")
+        min_val= np.nanmin(img, axis=(0,1), keepdims=True ) #keepdims car dim en 3
+        max_val= np.nanmax(img, axis=(0,1), keepdims=True )#shape(,C) avec True (1,1,C)
+        return (img - min_val) / (max_val - min_val  + 1e-6)
+
+    def standardize(self, image: np.ndarray) -> np.ndarray:
+        #je voulais importer StandardScaler ici de scikitlearn, surtout pas !!!
+        #IMAGE 2d (pixels x features) + de toute facon impossible avec 3 dimensions
+        mean = np.nanmean(image, axis=(0,1), keepdims=True)
+        std= np.nanstd(image, axis=(0,1), keepdims=True) + 1e-6
+        return (image-mean)/std
+
+    # @staticmethod
+    # def remove_nan_pixel(image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    #     if image.ndim == 3:
+    #         H, W, C = image.shape
+    #         image_flat = image.reshape(-1,C)
+    #     else:
+    #         image_flat = image
+
+    #     mask_valid_flat = ~np.isnan(image_flat).any(axis=-1)
+    #     image_clean= image_flat[mask_valid_flat]
+
+    #     if image.ndim == 3:
+    #         mask_valid = mask_valid_flat.reshape(H, W)
+    #     else:
+    #         mask_valid = mask_valid_flat
+
+    #     return image_clean, mask_valid
+
+
+#_____________
+#full pipeline
+#_____________
+
+def preprocess_image(img, remove_nan=False):
+    cleaner = DataCleaner()
+    cloud_detector = CloudMasker()
+
+    cloud_mask = cloud_detector.detect_clouds(img) #s2cloudless
+
+    img_norm = cleaner.normalize_bands(img) #normalisation bands 0-1
+
+    img_masked = cloud_detector.apply_mask(img_norm, cloud_mask, fill_value=np.nan)
+    '''masquage des pixel nuageux'''
+
+    B3  = img_masked[:, :, CloudMasker.BAND_IDX["B03"]]
+    B4  = img_masked[:, :, CloudMasker.BAND_IDX["B04"]]
+    B8  = img_masked[:, :, CloudMasker.BAND_IDX["B08"]]
+    B11 = img_masked[:, :, CloudMasker.BAND_IDX["B11"]]
+    '''ici les bands principales pour les indic car on en a besoin //extraction//'''
+
+    ndvi  = IndexCalculator.ndvi(B4,  B8)
+    ndbi  = IndexCalculator.ndbi(B11, B8)
+    mndwi = IndexCalculator.mndwi(B3, B11)
+
+    ndvi = ndvi[..., np.newaxis]
+    ndbi = ndbi[..., np.newaxis]
+    mndwi = mndwi[..., np.newaxis]
+    #ici cest pour concaténer 13 bandes
+
+    img_13 = np.concatenate([img_masked, ndvi, ndbi,mndwi], axis=-1)
+
+    img_std = cleaner.standardize(img_13)
+    mask_valid = ~np.isnan(img_std).any(axis=-1)
+    X_processed = img_std[mask_valid]
+    return X_processed
