@@ -7,6 +7,7 @@ venv/
 
 # ---- Raw data ----
 raw_data/
+labels_data
 
 # ---- Python ----
 __pycache__/
