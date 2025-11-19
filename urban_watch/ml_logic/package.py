@@ -263,16 +263,37 @@ class DataCleaner: #normalise les bandes de 0 a 1
         std= np.nanstd(image, axis=(0,1), keepdims=True) + 1e-6
         return (image-mean)/std
 
+    # @staticmethod
+    # def remove_nan_pixel(image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    #     if image.ndim == 3:
+    #         H, W, C = image.shape
+    #         image_flat = image.reshape(-1,C)
+    #     else:
+    #         image_flat = image
+
+    #     mask_valid_flat = ~np.isnan(image_flat).any(axis=-1)
+    #     image_clean= image_flat[mask_valid_flat]
+
+    #     if image.ndim == 3:
+    #         mask_valid = mask_valid_flat.reshape(H, W)
+    #     else:
+    #         mask_valid = mask_valid_flat
+
+    #     return image_clean, mask_valid
+
 
 #_____________
 #full pipeline
 #_____________
 
-def preprocess_image(img):
+def preprocess_image(img, remove_nan=False):
     cleaner = DataCleaner()
     cloud_detector = CloudMasker()
+
+    cloud_mask = cloud_detector.detect_clouds(img) #s2cloudless
+
     img_norm = cleaner.normalize_bands(img) #normalisation bands 0-1
-    cloud_mask = cloud_detector.detect_clouds(img_norm) #s2cloudless
+
     img_masked = cloud_detector.apply_mask(img_norm, cloud_mask, fill_value=np.nan)
     '''masquage des pixel nuageux'''
 
@@ -294,4 +315,6 @@ def preprocess_image(img):
     img_13 = np.concatenate([img_masked, ndvi, ndbi,mndwi], axis=-1)
 
     img_std = cleaner.standardize(img_13)
-    return img_std
+    mask_valid = ~np.isnan(img_std).any(axis=-1)
+    X_processed = img_std[mask_valid]
+    return X_processed
