@@ -4,6 +4,8 @@
 *.env
 .venv/
 venv/
+.DS_Store
+urban_watch/.DS_Store
 
 # ---- Raw data ----
 raw_data/
