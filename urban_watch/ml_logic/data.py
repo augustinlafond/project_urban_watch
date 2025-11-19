@@ -55,13 +55,9 @@ def make_bbox_global(lat, lon, km_size=3):
 
 RAW_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "raw_data")
 
-def get_data(list_bbox):
+def get_data(list_bbox, config):
 
     os.makedirs(RAW_DATA_DIR, exist_ok=True)
-
-    config = SHConfig()
-    config.sh_client_id = os.environ.get("SH_CLIENT_ID")
-    config.sh_client_secret = os.environ.get("SH_CLIENT_SECRET")
 
     images = []
     metadata_list = []

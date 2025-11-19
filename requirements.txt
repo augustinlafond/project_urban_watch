@@ -10,5 +10,6 @@ scikit-learn
 Requests
 Streamlit
 MLFlow
+google-cloud-storage
 opencv-python-headless
 s2cloudless
