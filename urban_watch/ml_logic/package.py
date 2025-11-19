@@ -317,4 +317,4 @@ def preprocess_image(img, remove_nan=False):
     img_std = cleaner.standardize(img_13)
     mask_valid = ~np.isnan(img_std).any(axis=-1)
     X_processed = img_std[mask_valid]
-    return X_processed
+    return X_processed, mask_valid
