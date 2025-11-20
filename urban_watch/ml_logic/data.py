@@ -140,7 +140,6 @@ def get_data(list_bbox, config):
 
 
 
-
 def load_data(raw_data_dir=RAW_DATA_DIR):
     """
     Charge toutes les tuiles stockées dans raw_data/
