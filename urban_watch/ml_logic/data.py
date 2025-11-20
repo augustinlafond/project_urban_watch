@@ -10,6 +10,7 @@ import folium
 from pyproj import CRS as pyCRS
 import math
 import cv2  # pour le resampling SCL
+from pathlib import Path
 
 def make_bbox_global(lat, lon, km_size=3):
     """
@@ -53,7 +54,7 @@ def make_bbox_global(lat, lon, km_size=3):
 
 
 
-RAW_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data/features_x")
+RAW_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "features_x"
 
 def get_data(list_bbox, config):
 

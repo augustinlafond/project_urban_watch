@@ -10,7 +10,7 @@ from rasterio.transform import from_bounds
 from rasterio.warp import transform_bounds, reproject, Resampling
 from urban_watch.ml_logic.data import RAW_DATA_DIR
 import math
-
+from pathlib import Path
 
 
 def get_bbox_from_features(raw_data_dir=RAW_DATA_DIR):
@@ -75,20 +75,43 @@ def tile_name_from_bbox_wgs84(list_bbox_wgs84):
 
 
 
+
 def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
     """
-    - tile_names : liste des noms des TIFF dans GCP
-    - list_bbox_wgs84 : bbox en WGS84 pour découper WorldCover
-    - list_bbox_x : bbox en CRS des tuiles X (pour construire transform_x)
-    - list_crs_x : CRS EPSG:326xx des tuiles X
+    - tile_names : noms des fichiers TIFF dans GCP (WorldCover tiles)
+    - list_bbox_wgs84 : bbox en WGS84 servant à découper WorldCover
+    - list_bbox_x : bbox des X en CRS projeté (EPSG:326xx)
+    - list_crs_x : CRS du X (EPSG:326xx)
+
+    Sauvegarde chaque Y dans :
+        data/labels_y/tile_{i}/label.tif
+
+    Renvoie : liste des labels (numpy arrays)
     """
 
     bucket_name = os.getenv("BUCKET_NAME")
     project = os.getenv("GCP_PROJECT")
 
+    # --- dossier de sortie ---
+    project_root = Path(__file__).resolve().parents[2]  # remonte depuis urban_watch/ml_logic/labels.py
+    labels_root = project_root / "data" / "labels_y"
+    labels_root.mkdir(parents=True, exist_ok=True)
+
+    base_folder = labels_root
+
     labels = []
 
-    for tile_name, bbox_wgs84, bbox_x, crs_x in zip(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
+    for i, (tile_name, bbox_wgs84, bbox_x, crs_x) in enumerate(
+            zip(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x)
+    ):
+        # Dossier local pour cette tile
+        tile_folder = base_folder / f"tile_{i}"
+        tile_folder.mkdir(parents=True, exist_ok=True)
+
+        # Chemin du label local
+        local_label_path = tile_folder / "label.tif"
+
+        print(f"⬇️ Téléchargement GCP + reprojection pour tile {i}")
 
         # --- 1. Télécharger la tuile depuis GCP ---
         client = storage.Client(project=project)
@@ -96,12 +119,12 @@ def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
         blob = bucket.blob(f"y-labels/{tile_name}")
         content = blob.download_as_bytes()
 
-        # --- 2. Lire WorldCover ---
+        # --- 2. Lire & découper en WGS84 ---
         with rasterio.MemoryFile(content) as memfile:
             with memfile.open() as src:
 
-                # Découpe en WGS84
                 min_lon, min_lat, max_lon, max_lat = bbox_wgs84
+
                 window = rasterio.windows.from_bounds(
                     min_lon, min_lat, max_lon, max_lat,
                     transform=src.transform
@@ -111,9 +134,8 @@ def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
                 wc_transform = src.window_transform(window)
                 wc_crs = src.crs  # EPSG:4326
 
-        # --- 3. Reprojeter sur la grille X (300×300) ---
-
-        xmin, ymin, xmax, ymax = bbox_x  # bbox en EPSG:326xx
+        # --- 3. Reprojection sur la grille X (300×300) ---
+        xmin, ymin, xmax, ymax = bbox_x
         dst_transform = from_bounds(xmin, ymin, xmax, ymax, 300, 300)
 
         dst = np.empty((300, 300), dtype=np.uint8)
@@ -125,9 +147,62 @@ def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
             src_crs=wc_crs,
             dst_transform=dst_transform,
             dst_crs=crs_x,
-            resampling=Resampling.nearest   # très important pour classification
+            resampling=Resampling.nearest
         )
 
         labels.append(dst)
+
+        # --- 4. Sauvegarde locale du label ---
+        with rasterio.open(
+            local_label_path,
+            "w",
+            driver="GTiff",
+            height=300,
+            width=300,
+            count=1,
+            dtype=dst.dtype,
+            crs=crs_x,
+            transform=dst_transform,
+        ) as dst_file:
+            dst_file.write(dst, 1)
+
+        print(f"💾 Sauvegardé dans {local_label_path}")
+
+    return labels
+
+
+
+
+
+def load_labels_y():
+    """
+    Charge tous les labels Y enregistrés dans data/labels_y/tile_i/label.tif.
+
+    Retourne :
+        labels : list[np.ndarray]   (chaque array a une shape (300, 300))
+    """
+
+    # --- Trouver la racine du projet ---
+    project_root = Path(__file__).resolve().parents[2]
+
+    # --- Dossier contenant les labels ---
+    labels_root = project_root / "data" / "labels_y"
+
+    labels = []
+
+    # --- Parcourir les sous-dossiers tile_i triés par index ---
+    tile_dirs = sorted(labels_root.glob("tile_*"),
+                       key=lambda p: int(p.name.split("_")[1]))
+
+    for tile_dir in tile_dirs:
+        tif_path = tile_dir / "label.tif"
+
+        # Lecture avec rasterio
+        with rasterio.open(tif_path) as src:
+            arr = src.read(1)  # lire bande unique
+            labels.append(arr)
+
+    print(f"📥 Chargement terminé : {len(labels)} labels trouvés.")
+    print(f" - Shape des labels : {labels[0].shape if len(labels) else 'N/A'}")
 
     return labels
