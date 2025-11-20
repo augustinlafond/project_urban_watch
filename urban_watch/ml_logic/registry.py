@@ -7,8 +7,14 @@ from mlflow.tracking import MlflowClient
 def save_model(model, model_name='model'):
 
     if MODEL_TARGET == "mlflow":
-        mlflow.     .log_model(model=model,
+        mlflow.sklearn.log_model(model=model,
                                artifact_path=MLFLOW_MODEL_NAME,
                                registered_model_name=MLFLOW_MODEL_NAME)
         print("model logged to mlflow")
         return
+
+#params + metric
+
+def save_params
+
+def save_metrics
