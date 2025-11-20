@@ -172,9 +172,9 @@ def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
 
 
 
+LABELS_DIR = Path(__file__).resolve().parents[2] / "data" / "labels_y"
 
-
-def load_labels_y():
+def load_labels_y(labels_dir=LABELS_DIR):
     """
     Charge tous les labels Y enregistrés dans data/labels_y/tile_i/label.tif.
 
@@ -182,16 +182,10 @@ def load_labels_y():
         labels : list[np.ndarray]   (chaque array a une shape (300, 300))
     """
 
-    # --- Trouver la racine du projet ---
-    project_root = Path(__file__).resolve().parents[2]
-
-    # --- Dossier contenant les labels ---
-    labels_root = project_root / "data" / "labels_y"
-
     labels = []
 
     # --- Parcourir les sous-dossiers tile_i triés par index ---
-    tile_dirs = sorted(labels_root.glob("tile_*"),
+    tile_dirs = sorted(labels_dir.glob("tile_*"),
                        key=lambda p: int(p.name.split("_")[1]))
 
     for tile_dir in tile_dirs:

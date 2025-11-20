@@ -12,7 +12,7 @@ import math
 import cv2  # pour le resampling SCL
 from pathlib import Path
 
-def make_bbox_global(lat, lon, km_size=3):
+def make_bbox_global(lat, lon, km_size=5):
     """
     Crée une bbox centrée sur (lat, lon) couvrant km_size x km_size km.
     Utilise UTM automatiquement si applicable, sinon WGS84 ajusté.
@@ -100,7 +100,7 @@ def get_data(list_bbox, config):
                 evalscript=evalscript,
                 input_data=[SentinelHubRequest.input_data(
                     DataCollection.SENTINEL2_L2A,
-                    time_interval=("2025-06-01", "2025-09-30"),
+                    time_interval=("2021-06-01", "2021-06-30"),
                 )],
                 responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
                 bbox=bbox,
