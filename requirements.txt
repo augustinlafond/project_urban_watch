@@ -13,3 +13,12 @@ MLFlow
 google-cloud-storage
 opencv-python-headless
 s2cloudless
+
+
+
+#mlflow
+mlflow==2.1.1
+prefect
+
+python-dotenv
+psycopg2-binary
