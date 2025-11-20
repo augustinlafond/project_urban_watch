@@ -53,7 +53,7 @@ def make_bbox_global(lat, lon, km_size=3):
 
 
 
-RAW_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "raw_data")
+RAW_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data/features_x")
 
 def get_data(list_bbox, config):
 
