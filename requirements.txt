@@ -13,7 +13,7 @@ MLFlow
 google-cloud-storage
 opencv-python-headless
 s2cloudless
-
+xgboost
 
 
 #mlflow
