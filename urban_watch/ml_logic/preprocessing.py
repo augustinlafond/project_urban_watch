@@ -318,3 +318,38 @@ def preprocess_image(img, remove_nan=False):
     mask_valid = ~np.isnan(img_std).any(axis=-1)
     X_processed = img_std[mask_valid]
     return X_processed, mask_valid
+
+
+def apply_preproc_X_y(X, y):
+
+    X_list = []
+    y_list = []
+
+    for i in range(X.shape[0]):
+        img = X[i]
+        label = y[i]
+
+        X_processed, mask_valid= preprocess_image(img)
+
+        y_flat = label.reshape(-1)
+
+        #Apply cloud mask on y
+        y_valid = y_flat[mask_valid.reshape(-1)]
+
+        # Enlever les y == 0 (NoData)
+        valid_idx = (y_valid != 0)
+
+        y_clean = y_valid[valid_idx]
+        X_clean = X_processed[valid_idx]
+
+        # Convertir y en binaire (urban vs non-urban)
+        y_binary = (y_clean == 50).astype(int)
+
+
+        X_list.append(X_clean)
+        y_list.append(y_binary)
+
+    X_all = np.vstack(X_list)
+    y_all = np.hstack(y_list)
+
+    return X_all, y_all

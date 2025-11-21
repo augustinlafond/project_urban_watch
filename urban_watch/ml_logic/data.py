@@ -10,8 +10,9 @@ import folium
 from pyproj import CRS as pyCRS
 import math
 import cv2  # pour le resampling SCL
+from pathlib import Path
 
-def make_bbox_global(lat, lon, km_size=3):
+def make_bbox_global(lat, lon, km_size=5):
     """
     Crée une bbox centrée sur (lat, lon) couvrant km_size x km_size km.
     Utilise UTM automatiquement si applicable, sinon WGS84 ajusté.
@@ -53,7 +54,7 @@ def make_bbox_global(lat, lon, km_size=3):
 
 
 
-RAW_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "raw_data")
+RAW_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "features_x"
 
 def get_data(list_bbox, config):
 
@@ -99,7 +100,7 @@ def get_data(list_bbox, config):
                 evalscript=evalscript,
                 input_data=[SentinelHubRequest.input_data(
                     DataCollection.SENTINEL2_L2A,
-                    time_interval=("2025-06-01", "2025-09-30"),
+                    time_interval=("2021-06-01", "2021-06-30"),
                 )],
                 responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
                 bbox=bbox,
