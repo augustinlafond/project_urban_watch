@@ -1,21 +1,30 @@
+# Sentinel & Geospatial
 sentinelhub
-matplotlib
-numpy
 rasterio
-folium
-dotenv
-pandas
-pyproj
-scikit-learn
-Requests
-Streamlit
-MLFlow
-google-cloud-storage
-opencv-python-headless
 s2cloudless
+folium
+pyproj
+opencv-python-headless
+google-cloud-storage
+
+# ML & Preprocessing
+numpy
+pandas
+scikit-learn
+lightgbm
+catboost
 xgboost
 
+# API / App
+streamlit
+requests
+python-dotenv
 
-#mlflow
+# Visualization
+matplotlib
+
+# MLOps
 mlflow==2.2.2
 psycopg2-binary
+
+
