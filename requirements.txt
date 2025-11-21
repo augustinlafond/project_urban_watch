@@ -27,4 +27,11 @@ matplotlib
 mlflow==2.2.2
 psycopg2-binary
 
+# API
+fastapi         # API framework
+pytz            # time zone management
+uvicorn         # web server
 
+# tests
+httpx           # HTTP client
+pytest-asyncio  # asynchronous I/O support for pytest
