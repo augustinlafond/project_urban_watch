@@ -17,6 +17,3 @@ N_BANDS = 13
 
 DTYPE_PROCESSED = np.float32
 
-if MODEL_TARGET not in ["mlflow"]:
-    raise NameError("MODEL_TARGET must be in ['mlflow']")
-
