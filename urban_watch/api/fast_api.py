@@ -1,25 +1,27 @@
 import os
-import numpy as np
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from sentinelhub import SHConfig
-import mlflow.pyfunc
 
-from urban_watch.ml_logic.data import get_data
-### Load model
-from urban_watch.ml_logic.preprocessing import preprocess_image
+from urban_watch.ml_logic.data import download_sentinel_image
+from urban_watch.interface.main import pred
 
-# ============================================================
-# INIT (comme dans TaxiFare)
-# ============================================================
+# INIT
 
 load_dotenv()
 
+## SentinelHub credentials
+config = SHConfig()
+config.sh_client_id = os.getenv("SH_CLIENT_ID")
+config.sh_client_secret = os.getenv("SH_CLIENT_SECRET")
+
+## FastAPI app
 app = FastAPI()
 
-# CORS (pour pouvoir appeler l'API depuis Streamlit)
+## CORS (pour Streamlit plus tard)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,55 +30,55 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# SentinelHub config (credentials dans .env)
-### config = SHConfig()
-### config.sh_client_id = os.getenv("SH_CLIENT_ID")
-### config.sh_client_secret = os.getenv("SH_CLIENT_SECRET")
-
-app = FastAPI()
-
-# http://127.0.0.1:8000/predict?pickup_datetime=2014-07-06+19:18:00&pickup_longitude=-73.950655&pickup_latitude=40.783282&dropoff_longitude=-73.984365&dropoff_latitude=40.769802&passenger_count=2
-@app.get("/predict")
-def predict(
-    lat: float,   
-    lon: float,   
-    km_size: int = 5  
-):
-
-    # Télécharger l'image Sentinel-2 
-    try:
-        images, metadata = get_data([(lat, lon)], config)
-    except Exception as e:
-        return {"error": f"SentinelHub download failed: {str(e)}"}
-
-    if len(images) == 0:
-        return {"error": "No image returned from SentinelHub"}
-
-    img = images[0]
-
-    # Préprocessing 
-    X_processed, mask_valid = preprocess_image(img)
-
-    # Prédiction du modèle MLflow
-    model = app.state.model
-    assert model is not None
-
-    y_pred = model.predict(X_processed)
-    y_pred = np.array(y_pred).squeeze()
-
-    # Score global d'urbanisation = moyenne des prédictions
-    urbanization_score = float(y_pred.mean())
-
-    # Réponse JSON simple
-    return {
-        "lat": lat,
-        "lon": lon,
-        "km_size": km_size,
-        "urbanization_score": urbanization_score 
-    }
+# ROOT
 
 @app.get("/")
 def root():
+    return {"status": "UrbanWatch API running ✅"}
+
+# PREDICT ENDPOINT
+
+@app.get("/predict")
+def predict(
+    x_min: float,
+    y_min: float,
+    x_max: float,
+    y_max: float,
+    date: str
+):
+    """
+    Example:
+    /predict?x_min=5.1&y_min=43.2&x_max=5.2&y_max=43.3&date=2021-06-15
+
+    coords format required:
+    (x_min, y_min, x_max, y_max)
+    """
+
+    ## validate date format
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        return {
+            "error": "Invalid date format. Expected YYYY-MM-DD",
+            "example": "2021-06-15"
+        }
+
+    ## correct bbox format for download_sentinel_image()
+    bbox = (x_min, y_min, x_max, y_max)
+
+    ## download Sentinel-2 image
+    try:
+        image = download_sentinel_image(date, bbox, config)
+    except Exception as e:
+        return {"error": f"SentinelHub download failed: {str(e)}"}
+
+    ## call the existing prediction function
+    y_pred_full, mean_score = pred(image)
+
+    ## API response
     return {
-        "greeting": "Hello from UrbanWatch API"
+        "bbox": bbox,
+        "date": date,
+        "urbanization_score": float(mean_score),
+        "prediction_shape": y_pred_full.shape
     }
