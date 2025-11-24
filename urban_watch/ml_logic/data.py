@@ -223,6 +223,25 @@ def download_sentinel_image(date, lon_lat, size_km, config):
     return image
 
 
+def image_rgb(image_sat):
+    # Extraire bandes RGB correctes
+    B2 = image_sat[:, :, 0]   # Blue
+    B3 = image_sat[:, :, 1]   # Green
+    B4 = image_sat[:, :, 2]   # Red
+
+    # Pile RGB
+    RGB = np.dstack([B4, B3, B2])
+
+    """Normalisation percentile + gamma"""
+    RGB = RGB.astype(float)
+    RGB = (RGB - RGB.min()) / (RGB.max() - RGB.min() + 1e-6)
+
+    p2 = np.percentile(RGB, 2)
+    p98 = np.percentile(RGB, 98)
+    RGB_stretched = np.clip((RGB - p2) / (p98 - p2), 0, 1)
+
+    gamma = 0.5
+    return np.clip(RGB_stretched ** gamma, 0, 1)
 
 
 def load_data(raw_data_dir=RAW_DATA_DIR):
