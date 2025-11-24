@@ -1,4 +1,4 @@
-from sentinelhub import SentinelHubRequest, DataCollection, MimeType, CRS, BBox, SHConfig
+from sentinelhub import SentinelHubRequest, DataCollection, MimeType, CRS, BBox, SHConfig, MosaickingOrder, bbox_to_dimensions
 from dotenv import load_dotenv
 from pyproj import Transformer
 import os
@@ -11,6 +11,8 @@ from pyproj import CRS as pyCRS
 import math
 import cv2  # pour le resampling SCL
 from pathlib import Path
+import time
+from datetime import datetime, timedelta
 
 def make_bbox_global(lat, lon, km_size=5):
     """
@@ -68,7 +70,7 @@ def get_data(list_bbox, config):
         print(f"📡 Downloading tile {i} at {lat},{lon} ...")
 
         # 1) Generate bbox automatically
-        bbox = make_bbox_global(lat, lon, km_size=3)
+        bbox = make_bbox_global(lat, lon, km_size=5)
 
         # 2) SentinelHub request
         evalscript = """
@@ -100,7 +102,8 @@ def get_data(list_bbox, config):
                 evalscript=evalscript,
                 input_data=[SentinelHubRequest.input_data(
                     DataCollection.SENTINEL2_L2A,
-                    time_interval=("2021-06-01", "2021-06-30"),
+                    time_interval=("2021-06-01", "2021-07-31"),
+                    mosaicking_order=MosaickingOrder.LEAST_CC,
                 )],
                 responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
                 bbox=bbox,
@@ -131,13 +134,76 @@ def get_data(list_bbox, config):
                 json.dump(meta, f, indent=4)
 
             metadata_list.append(meta)
-            print(f"✔ Saved tile {i} in {tile_dir}")
+            print(f"✔ Saved tile {i} in {tile_dir}.\nImage shape: {image.shape}")
+
+            # PAUSE to avoid SentinelHub throttling
+            time.sleep(5)
 
         except Exception as e:
             print(f"  ❌ Error downloading tile {i}: {str(e)}")
 
     print(f"\n✅ Downloaded {len(images)} images")
     return images, metadata_list
+
+
+
+
+def download_sentinel_image(date, coords_wgs84, config):
+
+    date = datetime.strptime(date, "%Y-%m-%d")
+
+    # 15 jours plus tôt
+    date_minus_15 = date - timedelta(days=15)
+
+    # 15 jours plus tard
+    date_plus_15 = date + timedelta(days=15)
+
+    # coords_wgs84 est dans le format suivant : xmin, xymin, xmax, ymax
+
+    bbox = BBox(bbox=coords_wgs84, crs=CRS.WGS84)
+    size = bbox_to_dimensions(bbox, resolution=10)
+
+
+    evalscript = """
+        //VERSION=3
+        function setup() {
+            return {
+                input: ["B01","B02","B03","B04","B05","B06","B08","B8A","B11","B12"],
+                output: { bands: 10, sampleType: "FLOAT32"}
+            };
+        }
+        function evaluatePixel(sample) {
+            return [
+            sample.B01,
+            sample.B02,
+            sample.B03,
+            sample.B04,
+            sample.B05,
+            sample.B06,
+            sample.B08,
+            sample.B8A,
+            sample.B11,
+            sample.B12
+        ];
+        }
+        """
+
+    request = SentinelHubRequest(
+                evalscript=evalscript,
+                input_data=[SentinelHubRequest.input_data(
+                    DataCollection.SENTINEL2_L2A,
+                    time_interval=(date_minus_15.strftime("%Y-%m-%d"), date_plus_15.strftime("%Y-%m-%d")),
+                    mosaicking_order=MosaickingOrder.LEAST_CC,
+                )],
+                responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
+                bbox=bbox,
+                size=size,
+                config=config
+            )
+
+    image = request.get_data()[0]  # (H, W, 10)
+    return image
+
 
 
 

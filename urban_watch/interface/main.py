@@ -17,8 +17,11 @@ import os
 import numpy as np
 from colorama import Fore, Style
 from urban_watch.ml_logic.data import get_data, load_data, RAW_DATA_DIR
-from urban_watch.ml_logic.preprocessing import apply_preproc_X_y
+from urban_watch.ml_logic.preprocessing import apply_preproc_X_y, preprocess_image
 from urban_watch.ml_logic.labels import get_bbox_from_features, bbox_to_wgs84, tile_name_from_bbox_wgs84, get_label_array, load_labels_y, LABELS_DIR
+from urban_watch.ml_logic.model import split_data, train_logreg, evaluate_model
+from urban_watch.ml_logic.registry import save_model, save_results, mlflow_run, load_model
+from urban_watch.params import *
 
 #   MAIN FUNCTIONS CALLED BY CLI
 
@@ -43,33 +46,32 @@ def full_preproc_pipeline():
     """
     print(Fore.CYAN + "\n🚀 Running PREPROCESSING PIPELINE...\n" + Style.RESET_ALL)
 
-    load_dotenv()
-
+    # Configure access to the SentinelHub API
     config = SHConfig()
-    config.sh_client_id = os.environ.get("SH_CLIENT_ID")
-    config.sh_client_secret = os.environ.get("SH_CLIENT_SECRET")
+    config.sh_client_id = SH_CLIENT_ID
+    config.sh_client_secret = SH_CLIENT_SECRET
 
     # Center of the bbox used for the train
-    list_bbox_centers = [(43.52960344286241, 5.448962145567533),
-(46.16802483919608, -1.1176074318571032),
- (43.5816738819709, 1.645701170443095),
- (43.48182194683079, 3.677980734975629),
- (43.8153030346785, 4.338764342740716),
- (43.61601277775063, 1.8758970522504868),
- (45.69764498502806, 5.8945655967385315),
- (42.6755834589268, 2.869650140046908),
- (47.31472637347379, 3.040818329458375),
- (47.432053447065, 1.8564002753276152),
- (44.917659363981606, 0.3198532687167684),
- (44.5354036268071, -1.0106115363381298),
- (42.69238910363254, 1.597205747150504),
- (43.74306182875029, 6.200148273979441),
- (43.29338648634513, 5.40265247747842),
- (48.856181368759366, 2.3370966981646553),
- (48.40265896290035, 2.7094534429859025),
- (45.754104529038855, 4.834183408486259),
- (44.76479997527986, 6.252615588665959),
- (47.211656711078476, -1.5545401474212523)
+    list_bbox_centers = [
+    (43.59533138728404, 6.944167292762329), # hauteur de Cannes, melange urbain/vegetation
+    (43.407067616126554, 6.522669188972711), # Var/vegetation
+    (43.128306760274825, 6.121503808299507), # Hyère/vegetation
+    (43.13997422359963, 5.928698334059295), # hauteur de Toulon
+    (43.23554616596631, 5.881493437321922), # parc regional sainte baume/vegetation
+    (43.219759411248, 5.7558111438277315), # Le castellet dans le Var/champs/vegetation/lotissement
+    (43.58587029251304, 5.4526213864786985), # Au dessus d'AIx en Pce/champs,route,maisons
+    (43.293089430781095, 5.389109345966383), # Marseille
+    (43.5306142665247, 5.438947178151266), # Aix
+    (43.53546797333638, 1.9686993230644818), # Est de Toulouse/champs
+    (48.83661245140578, 2.409813543996677), # Est de Paris/urbain et parc
+    (48.115035919487454, -1.6830147555182722), # Rennes
+    (46.702018498290286, 0.7668558109521145), # Champs vers Poitier
+    (47.49143988878275, 2.0914005645009692), # Forêt sud d'orléans
+    (47.26267555373632, 4.060278597924947), # PNR Morvan
+    (44.802566728154716, 4.375843852678453), # Ardèche
+    (43.88785890061108, 0.5595568148255528), # Sud-ouest/champs
+    (45.1278081381777, -1.0510523421771456), # Médoc
+    (43.51973871166271, 0.9356166219979338) # champs sud-ouest
  ]
 
     ########## Get the features X ##########
@@ -98,6 +100,90 @@ def full_preproc_pipeline():
 
     X_preproc, y_preproc = apply_preproc_X_y(X,y)
 
+    print("✅ preprocess() done \n")
+
     return X_preproc, y_preproc
 
-    print("✅ preprocess() done \n")
+
+
+
+@mlflow_run
+def train(X,y):
+    """
+    - Train on the preprocessed X and y
+    - Store training results and model weights
+    Return metrics (i.e. precision, recall, f1, accuracy)
+    """
+
+    X_train, X_test, y_train, y_test = split_data(X, y, test_size=0.2)
+    model, metrics = train_logreg(X_train, y_train)
+
+    params = dict(
+        context="train",
+        row_count=X_train.shape[0]
+    )
+
+    # Save results on MLFlow
+    save_results(params=params, metrics=metrics)
+
+    # Save model weight on MLFlow
+    save_model(model=model)
+
+    return metrics
+
+@mlflow_run
+def evaluate(X,y, stage="Production"):
+    """
+    Evaluate the performance of the latest production model on processed data
+    Return a dictionary with the metrics (i.e. precision, recall, f1, accuracy)
+    """
+    model = load_model(stage=stage)
+    assert model is not None
+
+    X_train, X_test, y_train, y_test = split_data(X, y, test_size=0.2)
+
+    metrics = evaluate_model(model=model, X_test=X_test, y_test=y_test)
+
+    params = dict(
+        context="evaluate",
+        row_count=X_train.shape[0]
+                   )
+
+    save_results(params=params, metrics=metrics)
+
+    print("✅ evaluate() done \n")
+
+
+
+def rebuild_prediction(y_pred, mask_valid, fill_value=np.nan):
+    """
+    Reconstruit une image de prédiction 300×300 à partir :
+    - y_pred (1D array : pixels valides)
+    - mask_valid (300×300 bool)
+    """
+
+    H, W = mask_valid.shape
+    y_full = np.full((H, W), fill_value, dtype=y_pred.dtype)
+
+    # Injecter les prédictions aux bonnes positions
+    y_full[mask_valid] = y_pred
+
+    return y_full
+
+
+
+def pred(X_pred,stage="Production"):
+
+    model = load_model(stage=stage)
+    assert model is not None
+
+    X_processed, mask_valid = preprocess_image(X_pred)
+    y_pred = model.predict(X_processed).reshape(-1)
+
+    # Reconstruction image 300x300
+    y_pred_full = rebuild_prediction(y_pred, mask_valid, fill_value=np.nan)
+
+    print("\n✅ prediction done")
+    print("Shape full :", y_pred_full.shape)
+
+    return y_pred_full, y_pred_full.mean()

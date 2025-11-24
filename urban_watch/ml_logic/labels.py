@@ -134,11 +134,11 @@ def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
                 wc_transform = src.window_transform(window)
                 wc_crs = src.crs  # EPSG:4326
 
-        # --- 3. Reprojection sur la grille X (300×300) ---
+        # --- 3. Reprojection sur la grille X (500×500) ---
         xmin, ymin, xmax, ymax = bbox_x
-        dst_transform = from_bounds(xmin, ymin, xmax, ymax, 300, 300)
+        dst_transform = from_bounds(xmin, ymin, xmax, ymax, 500, 500)
 
-        dst = np.empty((300, 300), dtype=np.uint8)
+        dst = np.empty((500, 500), dtype=np.uint8)
 
         reproject(
             source=wc_cut,
@@ -157,8 +157,8 @@ def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
             local_label_path,
             "w",
             driver="GTiff",
-            height=300,
-            width=300,
+            height=500,
+            width=500,
             count=1,
             dtype=dst.dtype,
             crs=crs_x,
@@ -179,7 +179,7 @@ def load_labels_y(labels_dir=LABELS_DIR):
     Charge tous les labels Y enregistrés dans data/labels_y/tile_i/label.tif.
 
     Retourne :
-        labels : list[np.ndarray]   (chaque array a une shape (300, 300))
+        labels : list[np.ndarray]   (chaque array a une shape (500, 500))
     """
 
     labels = []
