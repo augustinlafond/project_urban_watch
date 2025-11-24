@@ -5,34 +5,28 @@ import mlflow.sklearn
 import mlflow
 from mlflow.tracking import MlflowClient
 from urban_watch.params import *
-def save_model(model):
+from colorama import Fore, Style
 
-    if MODEL_TARGET == "mlflow":
-        if "LogisticRegression" in str(type(model)):
-            mlflow.sklearn.log_model(model=model,
+
+def save_model(model):
+    mlflow.sklearn.log_model(sk_model=model,
                                 artifact_path="model",
                                 registered_model_name=MLFLOW_MODEL_NAME)
+    print("model logged to mlflow")
+    return None
 
-        # if "RandomForest" in str(type(model)):
-        #     mlflow.sklearn.log_model(model=model,
-        #                         artifact_path=MLFLOW_MODEL_NAME,
-        #                         registered_model_name=MLFLOW_MODEL_NAME) -> a modifeier
+def save_results(params: dict, metrics: dict):
+    if params is not None:
+        mlflow.log_params(params)
+    if metrics is not None:
+        mlflow.log_metrics(metrics)
+    print("✅ Results saved on mlflow")
 
-        # elif "XGB" in str(type(model)):
-        #     mlflow.xgboost.log_model(model=model,
-        #                         artifact_path=MLFLOW_MODEL_NAME,
-        #                         registered_model_name=MLFLOW_MODEL_NAME)
-
-        print("model logged to mlflow")
-        return
-
-def load_model(model=):
 
 
 def mlflow_run(func):
     """
-    Generic function to log params and results to MLflow along with TensorFlow auto-logging
-
+    Generic function to log params and results to MLflow along with sklearn auto-logging
     Args:
         - func (function): Function you want to run within the MLflow run
         - params (dict, optional): Params to add to the run in MLflow. Defaults to None.
@@ -42,27 +36,30 @@ def mlflow_run(func):
         mlflow.end_run()
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
         mlflow.set_experiment(experiment_name=MLFLOW_EXPERIMENT)
-
         with mlflow.start_run():
             mlflow.sklearn.autolog()
             results = func(*args, **kwargs)
-
         print("✅ mlflow_run auto-log done")
-
         return results
     return wrapper
 
 
-#params + metric
+def load_model(stage="Production"):
+    print(Fore.BLUE + f"\nLoad [{stage}] model from MLflow..." + Style.RESET_ALL)
 
-# def save_params(params_dict, model_name=):
-#     for param_name, param_value in params_dict.item():
-#         mlflow.log_param(param_name, param_value)
-#     mlflow.log_param(le model name )
-#     mlflow.log_param(URI)
+    # Load model from MLflow
+    model = None
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    client = MlflowClient()
 
-# def save_metrics(metrics_dict, model_name=):
-#     essential_metrics = ['f1_score', 'roc_auc', 'recall', 'precision']
+    try:
+        model_versions = client.get_latest_versions(name=MLFLOW_MODEL_NAME, stages=[stage])
+        model_uri = model_versions[0].source
+        assert model_uri is not None
+    except:
+        print(f"\n❌ No model found with name {MLFLOW_MODEL_NAME} in stage {stage}")
+        return None
 
-
-# def save_all_to_mlflow(model, model_name, best_params, metrics_dict, X_test, y_test)
+    model = mlflow.sklearn.load_model(model_uri=model_uri)
+    print("✅ model loaded from mlflow")
+    return model

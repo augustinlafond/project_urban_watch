@@ -320,6 +320,8 @@ def preprocess_image(img, remove_nan=False):
     return X_processed, mask_valid
 
 
+
+
 def apply_preproc_X_y(X, y):
 
     X_list = []
