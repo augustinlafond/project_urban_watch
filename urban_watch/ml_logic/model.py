@@ -1,6 +1,8 @@
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+import xgboost as xgb
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 from colorama import Fore, Style
 
@@ -41,6 +43,54 @@ def train_logreg(X_train, y_train):
                    recall_train = train_recall,
                    f1_train = train_f1,
                    accuracy_train = train_accuracy)
+
+    print(f"✅ Model trained : {metrics}")
+    return model, metrics
+
+def train_random_forest(X_train, y_train):
+
+    model = RandomForestClassifier(
+        n_estimators=100,
+        max_depth=15,
+        random_state=42,
+        n_jobs=-1
+    )
+    model.fit(X_train, y_train)
+
+    y_train_pred = model.predict(X_train)
+    train_precision = precision_score(y_train, y_train_pred)
+    train_recall = recall_score(y_train, y_train_pred)
+    train_f1 = f1_score(y_train, y_train_pred)
+    train_accuracy = accuracy_score(y_train, y_train_pred)
+
+    metrics = dict(precision_train = train_precision,
+                   recall_train = train_recall,
+                   f1_train = train_f1,
+                   accuracy_train = train_accuracy)
+
+    print(f"✅ Model trained : {metrics}")
+    return model, metrics
+
+def train_xgb(X_train, y_train):
+    model = xgb.XGBClassifier(
+        n_estimators=100,
+        max_depth=6,
+        learning_rate=0.1,
+        random_state=42,
+        n_jobs=-1
+    )
+    model.fit(X_train, y_train)
+
+    y_train_pred = model.predict(X_train)
+    train_precision = precision_score(y_train, y_train_pred)
+    train_recall = recall_score(y_train, y_train_pred)
+    train_f1 = f1_score(y_train, y_train_pred)
+    train_accuracy = accuracy_score(y_train, y_train_pred)
+
+    metrics = dict(precision_train=train_precision,
+                   recall_train=train_recall,
+                   f1_train=train_f1,
+                   accuracy_train=train_accuracy)
 
     print(f"✅ Model trained : {metrics}")
     return model, metrics
