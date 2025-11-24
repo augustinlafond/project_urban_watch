@@ -9,6 +9,7 @@ from urban_watch.ml_logic.data import download_sentinel_image, image_rgb
 from urban_watch.interface.main import pred
 from urban_watch.params import *
 
+from pydantic import BaseModel
 
 # Configure access to the SentinelHub API
 config = SHConfig()
@@ -34,13 +35,14 @@ def root():
     return {"status": "UrbanWatch API running ✅"}
 
 # PREDICT ENDPOINT
+class PredictRequest(BaseModel):
+    lat: float
+    lon: float
+    date: str
+    size_km: float
 
-@app.get("/predict")
-def predict(
-    date: str,
-    lon_lat: float,
-    size_km : float
-):
+@app.post("/predict")
+def predict(request : PredictRequest):
     """
     Example:
     /predict?lon_lat=(0.10432014043169194, 43.23224498737862)&date=2021-06-15&size_km=3
@@ -51,22 +53,22 @@ def predict(
 
     ## validate date format
     try:
-        datetime.strptime(date, "%Y-%m-%d")
+        datetime.strptime(request.date, "%Y-%m-%d")
     except ValueError:
         return {
             "error": "Invalid date format. Expected YYYY-MM-DD",
             "example": "2021-06-15"
         }
 
-
+    lon_lat =(request.lon, request.lat)
     ## download Sentinel-2 image
     try:
-        image_sat = download_sentinel_image(date, lon_lat, size_km, config)
+        image_sat = download_sentinel_image(request.date, lon_lat, request.size_km, config)
     except Exception as e:
         return {"error": f"SentinelHub download failed: {str(e)}"}
 
     ## Return RGB image
-    image_rgb = image_rgb(image_sat)
+    rgb_image = image_rgb(image_sat)# renommer pour éviter conflit avec la fonction
 
     ## call the existing prediction function
     y_pred_full, mean_urban_score = pred(image_sat, model_name="random_forest_model", model_type="RandomForest", stage="Production")
@@ -74,6 +76,6 @@ def predict(
     ## API response
     return {
         "urbanization_score": float(round(mean_urban_score,2)),
-        "prediction": y_pred_full,
-        "image_rgb" : image_rgb
+        "prediction": y_pred_full.tolist(),
+        "rgb" : rgb_image.tolist()
     }
