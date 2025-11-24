@@ -13,33 +13,32 @@ from colorama import Fore, Style
 
 
 def save_model(model):
-    if MODEL_TARGET == "mlflow":
-        if model is not None:
-            if isinstance(model, LogisticRegression):
-                mlflow.sklearn.log_model(
-                    sk_model=model,
-                    artifact_path="model",
-                    registered_model_name="logistic_regression_model"
-                )
+    if model is not None:
+        if isinstance(model, LogisticRegression):
+            mlflow.sklearn.log_model(
+                sk_model=model,
+                artifact_path="model",
+                registered_model_name="logistic_regression_model"
+            )
 
-            elif isinstance(model, RandomForestClassifier):
-                mlflow.sklearn.log_model(
-                    sk_model=model,
-                    artifact_path="model",
-                    registered_model_name="random_forest_model"
-                )
+        elif isinstance(model, RandomForestClassifier):
+            mlflow.sklearn.log_model(
+                sk_model=model,
+                artifact_path="model",
+                registered_model_name="random_forest_model"
+            )
 
-            elif isinstance(model, xgb.XGBClassifier):
-                mlflow.xgboost.log_model(
-                    xgb_model=model.get_booster(),
-                    artifact_path="model",
-                    registered_model_name="xgb_model"
-                )
-            else:
-                raise ValueError(f"model not log")
+        elif isinstance(model, xgb.XGBClassifier):
+            mlflow.xgboost.log_model(
+                xgb_model=model.get_booster(),
+                artifact_path="model",
+                registered_model_name="xgb_model"
+            )
+        else:
+            raise ValueError(f"model not log")
 
-            print("model logged to mlflow")
-            return None
+        print("model logged to mlflow")
+        return None
 
 def save_results(params: dict, metrics: dict):
     if params is not None:

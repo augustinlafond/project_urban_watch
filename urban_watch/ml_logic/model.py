@@ -103,11 +103,14 @@ def evaluate_model(model, X_test, y_test):
 
     print(Fore.BLUE + f"\nEvaluating model on {len(X_test)} rows..." + Style.RESET_ALL)
 
-    if model is None:
-        print(f"\n❌ No model to evaluate")
-        return None
+    # Convert to DMatrix if model is a Booster
+    if isinstance(model, xgb.Booster):
+        X_test_dm = xgb.DMatrix(X_test)
+        y_pred = (model.predict(X_test_dm) > 0.5).astype(int)
 
-    y_pred = model.predict(X_test)
+    else:
+        # Standard scikit-learn API
+        y_pred = model.predict(X_test)
 
     precision = precision_score(y_test, y_pred)
     recall = recall_score(y_test, y_pred)

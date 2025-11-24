@@ -148,63 +148,100 @@ def get_data(list_bbox, config):
 
 
 
-def download_sentinel_image(date, coords_wgs84, config):
+def download_sentinel_image(date, lon_lat, size_km, config):
+    """
+    Télécharge une tuile Sentinel-2 centrée sur un point WGS84 (lon, lat)
+    dans une fenêtre carrée de size_km × size_km kilomètres.
 
+    Args:
+        date (str): "YYYY-MM-DD"
+        lon_lat (tuple): (lon, lat) WGS84
+        size_km (float): taille de la fenêtre en kilomètres
+        config: configuration SentinelHub
+
+    Returns:
+        numpy array (H, W, 10)
+    """
+
+    # --- Gestion des dates ---
     date = datetime.strptime(date, "%Y-%m-%d")
-
-    # 15 jours plus tôt
     date_minus_15 = date - timedelta(days=15)
-
-    # 15 jours plus tard
     date_plus_15 = date + timedelta(days=15)
 
-    # coords_wgs84 est dans le format suivant : xmin, xymin, xmax, ymax
+    lon, lat = lon_lat
 
-    bbox = BBox(bbox=coords_wgs84, crs=CRS.WGS84)
+    # --- Conversion km → degrés approx ---
+    # 1° de latitude ≈ 111 km
+    dlat = (size_km / 2) / 111
+    # 1° de longitude dépend de la latitude
+    dlon = (size_km / 2) / (111 * np.cos(np.radians(lat)))
+
+    # --- Construction de la bbox WGS84 ---
+    xmin = lon - dlon
+    xmax = lon + dlon
+    ymin = lat - dlat
+    ymax = lat + dlat
+
+    bbox = BBox(bbox=[xmin, ymin, xmax, ymax], crs=CRS.WGS84)
     size = bbox_to_dimensions(bbox, resolution=10)
 
-
+    # --- Script Sentinel-2 ---
     evalscript = """
-        //VERSION=3
-        function setup() {
-            return {
-                input: ["B01","B02","B03","B04","B05","B06","B08","B8A","B11","B12"],
-                output: { bands: 10, sampleType: "FLOAT32"}
-            };
-        }
-        function evaluatePixel(sample) {
-            return [
-            sample.B01,
-            sample.B02,
-            sample.B03,
-            sample.B04,
-            sample.B05,
-            sample.B06,
-            sample.B08,
-            sample.B8A,
-            sample.B11,
-            sample.B12
+    //VERSION=3
+    function setup() {
+        return {
+            input: ["B01","B02","B03","B04","B05","B06","B08","B8A","B11","B12"],
+            output: { bands: 10, sampleType: "FLOAT32"}
+        };
+    }
+    function evaluatePixel(sample) {
+        return [
+            sample.B01, sample.B02, sample.B03, sample.B04, sample.B05,
+            sample.B06, sample.B08, sample.B8A, sample.B11, sample.B12
         ];
-        }
-        """
+    }
+    """
 
+    # --- Requête SentinelHub ---
     request = SentinelHubRequest(
-                evalscript=evalscript,
-                input_data=[SentinelHubRequest.input_data(
-                    DataCollection.SENTINEL2_L2A,
-                    time_interval=(date_minus_15.strftime("%Y-%m-%d"), date_plus_15.strftime("%Y-%m-%d")),
-                    mosaicking_order=MosaickingOrder.LEAST_CC,
-                )],
-                responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
-                bbox=bbox,
-                size=size,
-                config=config
-            )
+        evalscript=evalscript,
+        input_data=[SentinelHubRequest.input_data(
+            DataCollection.SENTINEL2_L2A,
+            time_interval=(
+                date_minus_15.strftime("%Y-%m-%d"),
+                date_plus_15.strftime("%Y-%m-%d")
+            ),
+            mosaicking_order=MosaickingOrder.LEAST_CC,
+        )],
+        responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
+        bbox=bbox,
+        size=size,
+        config=config
+    )
 
-    image = request.get_data()[0]  # (H, W, 10)
+    image = request.get_data()[0]
     return image
 
 
+def image_rgb(image_sat):
+    # Extraire bandes RGB correctes
+    B2 = image_sat[:, :, 0]   # Blue
+    B3 = image_sat[:, :, 1]   # Green
+    B4 = image_sat[:, :, 2]   # Red
+
+    # Pile RGB
+    RGB = np.dstack([B4, B3, B2])
+
+    """Normalisation percentile + gamma"""
+    RGB = RGB.astype(float)
+    RGB = (RGB - RGB.min()) / (RGB.max() - RGB.min() + 1e-6)
+
+    p2 = np.percentile(RGB, 2)
+    p98 = np.percentile(RGB, 98)
+    RGB_stretched = np.clip((RGB - p2) / (p98 - p2), 0, 1)
+
+    gamma = 0.5
+    return np.clip(RGB_stretched ** gamma, 0, 1)
 
 
 def load_data(raw_data_dir=RAW_DATA_DIR):

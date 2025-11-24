@@ -132,25 +132,19 @@ def train(X,y, model_type='logreg', **model_params):
         **model_params
     )
 
-    test_metrics = evaluate_model(model=model, X_test=X_test, y_test=y_test)
-
     params = dict(
         context="train",
         model_type= model_type,
-        row_count=X_train.shape[0],
-        row_count_test=X_test.shape[0],
-        **model_params
+        row_count=X_train.shape[0]
     )
 
-    all_metrics = {**train_metrics, **test_metrics}
-
     # Save results on MLFlow
-    save_results(params=params, metrics=all_metrics)
+    save_results(params=params, metrics=train_metrics)
 
     # Save model weight on MLFlow
     save_model(model=model)
 
-    return all_metrics
+    return train_metrics
 
 @mlflow_run
 def evaluate(X,y,model_name="logreg_model", model_type="logreg", stage="Production"):
@@ -177,7 +171,7 @@ def evaluate(X,y,model_name="logreg_model", model_type="logreg", stage="Producti
         model_name= model_name,
         model_type= model_type,
         stage=stage,
-        row_count=X_train.shape[0]
+        row_count=X_test.shape[0]
                    )
 
     save_results(params=params, metrics=metrics)
