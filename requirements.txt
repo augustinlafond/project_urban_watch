@@ -26,6 +26,7 @@ matplotlib
 # MLOps
 mlflow==2.2.2
 psycopg2-binary
+prefect
 
 # API
 fastapi         # API framework
