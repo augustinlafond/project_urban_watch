@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+Notebooks/
+.env
+urban_watch.egg-info/
+*.egg-info
+*.log
+.git
+.gitignore
+Dockerfile
