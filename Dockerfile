@@ -14,4 +14,4 @@ COPY urban_watch urban_watch
 EXPOSE 8000
 
 # launch API
-CMD ["uvicorn", "urban_watch.api.fast_api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn urban_watch.api.fast_api:app --host 0.0.0.0 --port $PORT"]
