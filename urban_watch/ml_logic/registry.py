@@ -5,13 +5,18 @@ import mlflow.sklearn
 import mlflow
 from mlflow.tracking import MlflowClient
 from urban_watch.params import *
-def save_model(model, model_name='model'):
+def save_model(model):
 
     if MODEL_TARGET == "mlflow":
-        if "RandomForest" in str(type(model)):
+        if "LogisticRegression" in str(type(model)):
             mlflow.sklearn.log_model(model=model,
-                                artifact_path=MLFLOW_MODEL_NAME,
+                                artifact_path="model",
                                 registered_model_name=MLFLOW_MODEL_NAME)
+
+        # if "RandomForest" in str(type(model)):
+        #     mlflow.sklearn.log_model(model=model,
+        #                         artifact_path=MLFLOW_MODEL_NAME,
+        #                         registered_model_name=MLFLOW_MODEL_NAME) -> a modifeier
 
         # elif "XGB" in str(type(model)):
         #     mlflow.xgboost.log_model(model=model,
@@ -21,31 +26,8 @@ def save_model(model, model_name='model'):
         print("model logged to mlflow")
         return
 
-def mlflow_transition_model(current_stage: str, new_stage: str) -> None:
-    """
-    Transition the latest model from the `current_stage` to the
-    `new_stage` and archive the existing model in `new_stage`
-    """
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+def load_model(model=):
 
-    client = MlflowClient()
-
-    version = client.get_latest_versions(name=MLFLOW_MODEL_NAME, stages=[current_stage])
-
-    if not version:
-        print(f"\n❌ No model found with name {MLFLOW_MODEL_NAME} in stage {current_stage}")
-        return None
-
-    client.transition_model_version_stage(
-        name=MLFLOW_MODEL_NAME,
-        version=version[0].version,
-        stage=new_stage,
-        archive_existing_versions=True
-    )
-
-    print(f"✅ Model {MLFLOW_MODEL_NAME} (version {version[0].version}) transitioned from {current_stage} to {new_stage}")
-
-    return None
 
 def mlflow_run(func):
     """
