@@ -19,7 +19,7 @@ from colorama import Fore, Style
 from urban_watch.ml_logic.data import get_data, load_data, RAW_DATA_DIR
 from urban_watch.ml_logic.preprocessing import apply_preproc_X_y, preprocess_image
 from urban_watch.ml_logic.labels import get_bbox_from_features, bbox_to_wgs84, tile_name_from_bbox_wgs84, get_label_array, load_labels_y, LABELS_DIR
-from urban_watch.ml_logic.model import split_data, train_logreg, evaluate_model
+from urban_watch.ml_logic.model import split_data, train_logreg,train_random_forest, train_xgb, evaluate_model
 from urban_watch.ml_logic.registry import save_model, save_results, mlflow_run, load_model
 from urban_watch.params import *
 
@@ -106,39 +106,67 @@ def full_preproc_pipeline():
 
 
 
+MODEL_DISPATCHER = {
+    "logreg": train_logreg,
+    "random_forest": train_random_forest,
+    "xgb": train_xgb
+}
+
 
 @mlflow_run
-def train(X,y):
+def train(X,y, model_type='logreg', **model_params):
     """
     - Train on the preprocessed X and y
     - Store training results and model weights
     Return metrics (i.e. precision, recall, f1, accuracy)
     """
 
+    if model_type not in MODEL_DISPATCHER:
+        raise ValueError(f"Unsupported model type: {model_type}")
+    trainer_fn = MODEL_DISPATCHER[model_type]
+
     X_train, X_test, y_train, y_test = split_data(X, y, test_size=0.2)
-    model, metrics = train_logreg(X_train, y_train)
+
+    model, train_metrics = trainer_fn(
+        X_train, y_train,
+        **model_params
+    )
+
+    test_metrics = evaluate_model(model=model, X_test=X_test, y_test=y_test)
 
     params = dict(
         context="train",
-        row_count=X_train.shape[0]
+        model_type= model_type,
+        row_count=X_train.shape[0],
+        row_count_test=X_test.shape[0],
+        **model_params
     )
 
+    all_metrics = {**train_metrics, **test_metrics}
+
     # Save results on MLFlow
-    save_results(params=params, metrics=metrics)
+    save_results(params=params, metrics=all_metrics)
 
     # Save model weight on MLFlow
     save_model(model=model)
 
-    return metrics
+    return all_metrics
 
 @mlflow_run
-def evaluate(X,y, stage="Production"):
+def evaluate(X,y,model_name="logreg_model", model_type="logreg", stage="Production"):
     """
     Evaluate the performance of the latest production model on processed data
     Return a dictionary with the metrics (i.e. precision, recall, f1, accuracy)
     """
-    model = load_model(stage=stage)
-    assert model is not None
+    model = load_model(
+        model_name=model_name,
+        model_type=model_type,
+        stage=stage
+        )
+    if model is None:
+        print(f"no model found: {model_name} ({stage})")
+        return None
+
 
     X_train, X_test, y_train, y_test = split_data(X, y, test_size=0.2)
 
@@ -146,6 +174,9 @@ def evaluate(X,y, stage="Production"):
 
     params = dict(
         context="evaluate",
+        model_name= model_name,
+        model_type= model_type,
+        stage=stage,
         row_count=X_train.shape[0]
                    )
 
@@ -172,10 +203,16 @@ def rebuild_prediction(y_pred, mask_valid, fill_value=np.nan):
 
 
 
-def pred(X_pred,stage="Production"):
+def pred(X_pred, model_name="xgb_model", model_type="xgb", stage="Production"):
 
-    model = load_model(stage=stage)
-    assert model is not None
+    model = load_model(
+        model_name=model_name,
+        model_type=model_type,
+        stage=stage
+    )
+    if model is None:
+        print(f"No model found: {model_name} ({stage})")
+        return None, None
 
     X_processed, mask_valid = preprocess_image(X_pred)
     y_pred = model.predict(X_processed).reshape(-1)
