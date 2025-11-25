@@ -29,6 +29,13 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {"status": "UrbanWatch API running :coche_blanche:"}
+
+app.state.model = load_model(
+        model_name="random_forest_model",
+        model_type="RandomForest",
+        stage="Production"
+    )
+
 # PREDICT ENDPOINT
 
 @app.get("/predict")
@@ -58,16 +65,9 @@ def predict(
     ## Return RGB image
     rgb_image = image_rgb(image_sat)
 
-
-    model = load_model(
-        model_name="random_forest_model",
-        model_type="RandomForest",
-        stage="Production"
-    )
-
     ## call the existing prediction function
     y_pred_full, mean_urban_score = pred(X_pred=image_sat,
-                                         model=model)
+                                         model=app.state.model)
 
 
     ## API response
