@@ -188,7 +188,7 @@ def rebuild_prediction(y_pred, mask_valid, fill_value=np.nan):
     """
 
     H, W = mask_valid.shape
-    y_full = np.full((H, W), fill_value, dtype=y_pred.dtype)
+    y_full = np.full((H, W), fill_value, dtype=np.float64)
 
     # Injecter les prédictions aux bonnes positions
     y_full[mask_valid] = y_pred
@@ -197,24 +197,15 @@ def rebuild_prediction(y_pred, mask_valid, fill_value=np.nan):
 
 
 
-def pred(X_pred, model_name="xgb_model", model_type="xgb", stage="Production"):
-
-    model = load_model(
-        model_name=model_name,
-        model_type=model_type,
-        stage=stage
-    )
-    if model is None:
-        print(f"No model found: {model_name} ({stage})")
-        return None, None
+def pred(X_pred, model):
 
     X_processed, mask_valid = preprocess_image(X_pred)
     y_pred = model.predict(X_processed).reshape(-1)
 
     # Reconstruction image 300x300
-    y_pred_full = rebuild_prediction(y_pred, mask_valid, fill_value=np.nan)
+    y_pred_full = rebuild_prediction(y_pred, mask_valid)
 
     print("\n✅ prediction done")
     print("Shape full :", y_pred_full.shape)
 
-    return y_pred_full, y_pred_full.mean()
+    return y_pred_full, np.nanmean(y_pred_full)
