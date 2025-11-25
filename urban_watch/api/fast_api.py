@@ -35,10 +35,11 @@ def root():
 
 # PREDICT ENDPOINT
 
-@app.get("/predict")
+@app.post("/predict")
 def predict(
     date: str,
-    lon_lat: float,
+    lon: float,
+    lat: float,
     size_km : float
 ):
     """
@@ -61,12 +62,12 @@ def predict(
 
     ## download Sentinel-2 image
     try:
-        image_sat = download_sentinel_image(date, lon_lat, size_km, config)
+        image_sat = download_sentinel_image(date, lon, lat, size_km, config)
     except Exception as e:
         return {"error": f"SentinelHub download failed: {str(e)}"}
 
     ## Return RGB image
-    image_rgb = image_rgb(image_sat)
+    rgb_image = image_rgb(image_sat)
 
     ## call the existing prediction function
     y_pred_full, mean_urban_score = pred(image_sat, model_name="random_forest_model", model_type="RandomForest", stage="Production")
@@ -74,6 +75,6 @@ def predict(
     ## API response
     return {
         "urbanization_score": float(round(mean_urban_score,2)),
-        "prediction": y_pred_full,
-        "image_rgb" : image_rgb
+        "prediction": y_pred_full.tolist(),
+        "rgb" : rgb_image.tolist()
     }
