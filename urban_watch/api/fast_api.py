@@ -24,7 +24,7 @@ app.add_middleware(
 def root():
     return {"status": "UrbanWatch API running :coche_blanche:"}
 # PREDICT ENDPOINT
-@app.post("/predict")
+@app.get("/predict")
 def predict(
     date: str,
     lon: float,
@@ -55,6 +55,7 @@ def predict(
     ## call the existing prediction function
     y_pred_full, mean_urban_score = pred(image_sat, model_name="random_forest_model", model_type="RandomForest", stage="Production")
     ## API response
+    breakpoint()
     return {
         "urbanization_score": float(round(mean_urban_score,2)),
         "prediction": y_pred_full.tolist(),
