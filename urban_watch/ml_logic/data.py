@@ -148,14 +148,14 @@ def get_data(list_bbox, config):
 
 
 
-def download_sentinel_image(date, lon_lat, size_km, config):
+def download_sentinel_image(date, lon, lat, size_km, config):
     """
     Télécharge une tuile Sentinel-2 centrée sur un point WGS84 (lon, lat)
     dans une fenêtre carrée de size_km × size_km kilomètres.
 
     Args:
         date (str): "YYYY-MM-DD"
-        lon_lat (tuple): (lon, lat) WGS84
+        lon et lat: coordonnées en WGS84 du centre de la zone d'intéret
         size_km (float): taille de la fenêtre en kilomètres
         config: configuration SentinelHub
 
@@ -167,8 +167,6 @@ def download_sentinel_image(date, lon_lat, size_km, config):
     date = datetime.strptime(date, "%Y-%m-%d")
     date_minus_15 = date - timedelta(days=15)
     date_plus_15 = date + timedelta(days=15)
-
-    lon, lat = lon_lat
 
     # --- Conversion km → degrés approx ---
     # 1° de latitude ≈ 111 km
