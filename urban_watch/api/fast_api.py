@@ -69,7 +69,6 @@ def predict(
     y_pred_full, mean_urban_score = pred(X_pred=image_sat,
                                          model=app.state.model)
 
-
     ## API response
     return {
         "urbanization_score": float(round(mean_urban_score,2)),
