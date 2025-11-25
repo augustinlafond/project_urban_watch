@@ -180,7 +180,7 @@ def evaluate(X,y,model_name="logreg_model", model_type="logreg", stage="Producti
 
 
 
-def rebuild_prediction(y_pred, mask_valid, fill_value=np.nan):
+def rebuild_prediction(y_pred, mask_valid, fill_value=-1):
     """
     Reconstruit une image de prédiction 300×300 à partir :
     - y_pred (1D array : pixels valides)
@@ -188,7 +188,7 @@ def rebuild_prediction(y_pred, mask_valid, fill_value=np.nan):
     """
 
     H, W = mask_valid.shape
-    y_full = np.full((H, W), fill_value, dtype=np.float64)
+    y_full = np.full((H, W), fill_value, dtype=np.int64)
 
     # Injecter les prédictions aux bonnes positions
     y_full[mask_valid] = y_pred
@@ -205,7 +205,9 @@ def pred(X_pred, model):
     # Reconstruction image 300x300
     y_pred_full = rebuild_prediction(y_pred, mask_valid)
 
+    mean_urban_score = np.mean(y_pred_full[y_pred_full != -1])
+
     print("\n✅ prediction done")
     print("Shape full :", y_pred_full.shape)
 
-    return y_pred_full, np.nanmean(y_pred_full)
+    return y_pred_full, mean_urban_score
