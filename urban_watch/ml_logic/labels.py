@@ -19,19 +19,24 @@ This module performs the following operations:
 The code does **not** modify any feature arrays; it focuses solely on generating and loading label rasters aligned with input feature tiles.
 """
 
-import numpy as np
-import json
-from dotenv import load_dotenv
+
+# Standard library
 import os
+import math
+import json
+from pathlib import Path
+from io import BytesIO
+
+# Third-party libraries
+import numpy as np
 from pyproj import Transformer
 from google.cloud import storage
 import rasterio
-from io import BytesIO
 from rasterio.transform import from_bounds
-from rasterio.warp import transform_bounds, reproject, Resampling
+from rasterio.warp import reproject, Resampling
+
+# Project-specific imports
 from urban_watch.ml_logic.data import RAW_DATA_DIR
-import math
-from pathlib import Path
 
 
 def get_bbox_from_features(raw_data_dir=RAW_DATA_DIR):
@@ -46,15 +51,13 @@ def get_bbox_from_features(raw_data_dir=RAW_DATA_DIR):
     list_crs = []
 
     for tile_name in sorted(os.listdir(RAW_DATA_DIR)):
-            meta_path = os.path.join(RAW_DATA_DIR, tile_name, "meta.json")
-            with open(meta_path, "r") as f:
-                data = json.load(f)
-                list_bbox.append(data['bbox'])
-                list_crs.append(data['bbox_crs'])
+        meta_path = os.path.join(RAW_DATA_DIR, tile_name, "meta.json")
+        with open(meta_path, "r") as f:
+            data = json.load(f)
+            list_bbox.append(data["bbox"])
+            list_crs.append(data["bbox_crs"])
 
     return list_bbox, list_crs
-
-
 
 
 def bbox_to_wgs84(list_bbox, list_crs):
@@ -77,7 +80,6 @@ def bbox_to_wgs84(list_bbox, list_crs):
     return list_bbox_wgs84
 
 
-
 def tile_name_from_bbox_wgs84(list_bbox_wgs84):
     """
     Create the name of the tiff file containing the labels (y) to be retrieved from GCP, based on the feature boxes (X).
@@ -96,11 +98,11 @@ def tile_name_from_bbox_wgs84(list_bbox_wgs84):
         lat_prefix = f"N{lat_tile:02d}" if lat_tile >= 0 else f"S{abs(lat_tile):02d}"
         lon_prefix = f"E{lon_tile:03d}" if lon_tile >= 0 else f"W{abs(lon_tile):03d}"
 
-        tile_names.append(f"ESA_WorldCover_10m_2021_V200_{lat_prefix}{lon_prefix}_Map.tif")
+        tile_names.append(
+            f"ESA_WorldCover_10m_2021_V200_{lat_prefix}{lon_prefix}_Map.tif"
+        )
 
     return tile_names
-
-
 
 
 def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
@@ -129,7 +131,7 @@ def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
     labels = []
 
     for i, (tile_name, bbox_wgs84, bbox_x, crs_x) in enumerate(
-            zip(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x)
+        zip(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x)
     ):
         # Local folder for this tile
         tile_folder = base_folder / f"tile_{i}"
@@ -153,8 +155,7 @@ def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
                 min_lon, min_lat, max_lon, max_lat = bbox_wgs84
 
                 window = rasterio.windows.from_bounds(
-                    min_lon, min_lat, max_lon, max_lat,
-                    transform=src.transform
+                    min_lon, min_lat, max_lon, max_lat, transform=src.transform
                 )
 
                 wc_cut = src.read(1, window=window)
@@ -174,7 +175,7 @@ def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
             src_crs=wc_crs,
             dst_transform=dst_transform,
             dst_crs=crs_x,
-            resampling=Resampling.nearest
+            resampling=Resampling.nearest,
         )
 
         labels.append(dst)
@@ -198,8 +199,8 @@ def get_label_array(tile_names, list_bbox_wgs84, list_bbox_x, list_crs_x):
     return labels
 
 
-
 LABELS_DIR = Path(__file__).resolve().parents[2] / "data" / "labels_y"
+
 
 def load_labels_y(labels_dir=LABELS_DIR):
     """
@@ -212,8 +213,9 @@ def load_labels_y(labels_dir=LABELS_DIR):
     labels = []
 
     # --- Browse the tile_i subfolders sorted by index ---
-    tile_dirs = sorted(labels_dir.glob("tile_*"),
-                       key=lambda p: int(p.name.split("_")[1]))
+    tile_dirs = sorted(
+        labels_dir.glob("tile_*"), key=lambda p: int(p.name.split("_")[1])
+    )
 
     for tile_dir in tile_dirs:
         tif_path = tile_dir / "label.tif"
