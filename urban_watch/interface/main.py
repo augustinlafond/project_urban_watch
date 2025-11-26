@@ -37,6 +37,7 @@ from urban_watch.ml_logic.model import (
     train_random_forest,
     train_xgb,
     evaluate_model,
+    tune_random_forest
 )
 from urban_watch.ml_logic.registry import (
     save_model,
@@ -103,6 +104,39 @@ def full_preproc_pipeline():
         (43.88785890061108, 0.5595568148255528),  # Southwest / fields
         (45.1278081381777, -1.0510523421771456),  # Médoc
         (43.51973871166271, 0.9356166219979338),  # Southwest fields
+        (45.75700560418582, 4.837894458418483), #Lyon
+        (48.891152468380895, 2.239094188930942), #La Défense, Paris
+        (48.86211843574683, 2.2905981373634647), # Paris, ouest
+        (47.20618773079231, -1.5459163950180743), #Nantes
+        (47.08464183721342, -1.6962596890656523), #Réserve naturelle du lac grand lieu
+        (48.40034048180863, -4.469675087417314), #Brest
+        (46.1586960979153, -1.1755560282124524), #La Rochelle
+        (44.844587556634146, -0.5829596959701742),#Bordeaux
+        (44.55369842246411, -1.0496900841748926),  #champs côte atlantique
+        (43.628414501899975, 1.4448563066009605), #Toulouse nord
+        (43.569022158861245, 1.4388048524502546), #Toulouse sud
+        (43.613980641781446, 3.8639232537015333), #Montpellier
+        (43.52966326291851, 4.215722893206303), #Etangs vers grau du roi
+        (43.48589477322024, 4.301058354400013), #Etangs vers grau du roi_2
+        (43.83913985594882, 4.358150296025464), #Nimes
+        (43.70159048778169, 7.26353168007621), #Nices
+        (48.5783372290238, 7.743236109562404), #Strasbourg
+        (48.71254652139096, 7.456551198100515), #Champs à côté de Strasbourg
+        (48.57456545847434, 7.13492831210087), #Forêt Moselle
+        (48.13420361687641, 6.612626640624101), #Vosges
+        (44.07958873358449, -0.5877954280139801), #Parc naturel landes de gascogne
+        (43.89019877443544, 1.6878249944173407), #Champs sud ouest (vers Gaillac)
+        (46.19665157664145, -1.4198303131713605), #Ile de ré
+        (45.9778298202333, -1.4040436132469687), #Ile d'Oléron
+        (42.92820871972086, 0.12882996229236), #Pyrénnées (Pic du midi de Bigorre)
+        (45.91019201754405, 6.877210430219988), #Chamonix
+        (43.793200686954954, 0.47904131618370716), #champs sud-ouest
+        (43.62883173367989, -0.44509715612673423), #champs sud-ouest
+        (43.21417810920307, -1.0111140447352363), #champs sud-ouest
+        (42.69476656356274, 2.9145523571599234), #Perpignan
+        (44.36818889111061, 6.882259133095895), #Mercantour
+
+
     ]
 
     ########## Get the features X ##########
@@ -139,6 +173,7 @@ def full_preproc_pipeline():
 MODEL_DISPATCHER = {
     "logreg": train_logreg,
     "random_forest": train_random_forest,
+    "random_forest_tuned": tune_random_forest,
     "xgb": train_xgb,
 }
 
