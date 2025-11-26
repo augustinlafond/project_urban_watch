@@ -1,23 +1,35 @@
+"""
+# UrbanWatch API
+This module exposes a FastAPI-based HTTP API used to:
+- Download Sentinel‑2 satellite imagery from SentinelHub.
+- Generate an RGB visualization from raw satellite data.
+- Run an urbanization prediction model (Random Forest).
+- Return predictions, RGB image, and aggregated urbanization scores.
+
+
+The API provides one main endpoint:
+- **/predict**: Fetches a satellite tile for coordinates and date, processes it, predicts urbanization, and returns results.
+"""
+
 from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sentinelhub import SHConfig
-
 import numpy as np
-
 from urban_watch.ml_logic.data import download_sentinel_image, image_rgb
 from urban_watch.interface.main import pred
 from urban_watch.params import *
-
 from urban_watch.ml_logic.registry import load_model
 
 # Configure access to the SentinelHub API
 config = SHConfig()
 config.sh_client_id = SH_CLIENT_ID
 config.sh_client_secret = SH_CLIENT_SECRET
+
 ## FastAPI app
 app = FastAPI()
-## CORS (pour Streamlit plus tard)
+
+## CORS (For Streamlit)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,6 +37,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 # ROOT
 @app.get("/")
 def root():
@@ -37,7 +50,6 @@ app.state.model = load_model(
     )
 
 # PREDICT ENDPOINT
-
 @app.get("/predict")
 def predict(
     date: str,
@@ -57,11 +69,13 @@ def predict(
             "error": "Invalid date format. Expected YYYY-MM-DD",
             "example": "2021-06-15"
         }
+
     ## download Sentinel-2 image
     try:
         image_sat = download_sentinel_image(date, lon, lat, size_km, config)
     except Exception as e:
         return {"error": f"SentinelHub download failed: {str(e)}"}
+    
     ## Return RGB image
     rgb_image = image_rgb(image_sat)
 

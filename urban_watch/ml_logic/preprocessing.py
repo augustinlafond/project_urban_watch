@@ -9,11 +9,12 @@ from dataclasses import dataclass
 from typing import Tuple, Optional
 from s2cloudless import S2PixelCloudDetector
 
-#____________
+#__________________________________
 #class 1, IndexCalculator /calculate spectral (NDVI, NDBI and others)
 #Use : Convert raw bands into useful indicators (vegetation, water and others)
-#____________
-class IndexCalculator:#calcul le spectre d'indice
+#__________________________________
+
+class IndexCalculator:#calculates the index spectrum
 
     @staticmethod
     def ndvi(B4: np.ndarray, B8: np.ndarray) -> np.ndarray:
@@ -194,7 +195,7 @@ class ImageNormalizer:
             normalized_image = ImageNormalizer.normalize_full(image, config)
     """
 
-#___
+#__________________________________
 #cloud masking
 #__________________________________
 
@@ -245,46 +246,27 @@ class CloudMasker:
     def get_cloud_percentage(mask: np.ndarray) -> float:
         return (mask.sum() / mask.size) * 100
 
-#_____________
+#__________________________________
 #data cleaning
-#_____________
-class DataCleaner: #normalise les bandes de 0 a 1
+#__________________________________
+class DataCleaner: #normalizes the bands from 0 to 1
 
     def normalize_bands(self, image: np.ndarray) -> np.ndarray:
         img = image.astype("float32")
-        min_val= np.nanmin(img, axis=(0,1), keepdims=True ) #keepdims car dim en 3
-        max_val= np.nanmax(img, axis=(0,1), keepdims=True )#shape(,C) avec True (1,1,C)
+        min_val= np.nanmin(img, axis=(0,1), keepdims=True )
+        max_val= np.nanmax(img, axis=(0,1), keepdims=True )#shape(,C) with True (1,1,C)
         return (img - min_val) / (max_val - min_val  + 1e-6)
 
     def standardize(self, image: np.ndarray) -> np.ndarray:
-        #je voulais importer StandardScaler ici de scikitlearn, surtout pas !!!
-        #IMAGE 2d (pixels x features) + de toute facon impossible avec 3 dimensions
+
         mean = np.nanmean(image, axis=(0,1), keepdims=True)
         std= np.nanstd(image, axis=(0,1), keepdims=True) + 1e-6
         return (image-mean)/std
 
-    # @staticmethod
-    # def remove_nan_pixel(image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    #     if image.ndim == 3:
-    #         H, W, C = image.shape
-    #         image_flat = image.reshape(-1,C)
-    #     else:
-    #         image_flat = image
 
-    #     mask_valid_flat = ~np.isnan(image_flat).any(axis=-1)
-    #     image_clean= image_flat[mask_valid_flat]
-
-    #     if image.ndim == 3:
-    #         mask_valid = mask_valid_flat.reshape(H, W)
-    #     else:
-    #         mask_valid = mask_valid_flat
-
-    #     return image_clean, mask_valid
-
-
-#_____________
+#__________________________________
 #full pipeline
-#_____________
+#__________________________________
 
 def preprocess_image(img, remove_nan=False):
     cleaner = DataCleaner()
@@ -295,13 +277,12 @@ def preprocess_image(img, remove_nan=False):
     img_norm = cleaner.normalize_bands(img) #normalisation bands 0-1
 
     img_masked = cloud_detector.apply_mask(img_norm, cloud_mask, fill_value=np.nan)
-    '''masquage des pixel nuageux'''
+    '''masking cloudy pixels'''
 
     B3  = img_masked[:, :, CloudMasker.BAND_IDX["B03"]]
     B4  = img_masked[:, :, CloudMasker.BAND_IDX["B04"]]
     B8  = img_masked[:, :, CloudMasker.BAND_IDX["B08"]]
     B11 = img_masked[:, :, CloudMasker.BAND_IDX["B11"]]
-    '''ici les bands principales pour les indic car on en a besoin //extraction//'''
 
     ndvi  = IndexCalculator.ndvi(B4,  B8)
     ndbi  = IndexCalculator.ndbi(B11, B8)
@@ -310,15 +291,13 @@ def preprocess_image(img, remove_nan=False):
     ndvi = ndvi[..., np.newaxis]
     ndbi = ndbi[..., np.newaxis]
     mndwi = mndwi[..., np.newaxis]
-    #ici cest pour concaténer 13 bandes
 
-    img_13 = np.concatenate([img_masked, ndvi, ndbi,mndwi], axis=-1)
+    img_13 = np.concatenate([img_masked, ndvi, ndbi,mndwi], axis=-1)#This is for concatenating 13 strips
 
     img_std = cleaner.standardize(img_13)
     mask_valid = ~np.isnan(img_std).any(axis=-1)
     X_processed = img_std[mask_valid]
     return X_processed, mask_valid
-
 
 
 
@@ -338,13 +317,13 @@ def apply_preproc_X_y(X, y):
         #Apply cloud mask on y
         y_valid = y_flat[mask_valid.reshape(-1)]
 
-        # Enlever les y == 0 (NoData)
+        # Remove the y's == 0 (NoData)
         valid_idx = (y_valid != 0)
 
         y_clean = y_valid[valid_idx]
         X_clean = X_processed[valid_idx]
 
-        # Convertir y en binaire (urban vs non-urban)
+        # Convert y to binary (urban vs non-urban)
         y_binary = (y_clean == 50).astype(int)
 
 

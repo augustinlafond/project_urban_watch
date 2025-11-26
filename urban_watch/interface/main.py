@@ -53,25 +53,25 @@ def full_preproc_pipeline():
 
     # Center of the bbox used for the train
     list_bbox_centers = [
-    (43.59533138728404, 6.944167292762329), # hauteur de Cannes, melange urbain/vegetation
-    (43.407067616126554, 6.522669188972711), # Var/vegetation
+    (43.59533138728404, 6.944167292762329), # Cannes area, mix of urban/vegetation
+    (43.407067616126554, 6.522669188972711), # Var region / vegetation
     (43.128306760274825, 6.121503808299507), # Hyère/vegetation
-    (43.13997422359963, 5.928698334059295), # hauteur de Toulon
-    (43.23554616596631, 5.881493437321922), # parc regional sainte baume/vegetation
-    (43.219759411248, 5.7558111438277315), # Le castellet dans le Var/champs/vegetation/lotissement
+    (43.13997422359963, 5.928698334059295), # North of Toulon
+    (43.23554616596631, 5.881493437321922), # Sainte-Baume regional park / vegetation
+    (43.219759411248, 5.7558111438277315), # Le Castellet (Var) / fields / vegetation / housing
     (43.58587029251304, 5.4526213864786985), # Au dessus d'AIx en Pce/champs,route,maisons
     (43.293089430781095, 5.389109345966383), # Marseille
     (43.5306142665247, 5.438947178151266), # Aix
-    (43.53546797333638, 1.9686993230644818), # Est de Toulouse/champs
-    (48.83661245140578, 2.409813543996677), # Est de Paris/urbain et parc
+    (43.53546797333638, 1.9686993230644818), # East of Toulouse / fields
+    (48.83661245140578, 2.409813543996677), # East Paris/urban + park
     (48.115035919487454, -1.6830147555182722), # Rennes
-    (46.702018498290286, 0.7668558109521145), # Champs vers Poitier
-    (47.49143988878275, 2.0914005645009692), # Forêt sud d'orléans
+    (46.702018498290286, 0.7668558109521145), # Fields near Poitiers
+    (47.49143988878275, 2.0914005645009692), # Forest south of Orléans
     (47.26267555373632, 4.060278597924947), # PNR Morvan
     (44.802566728154716, 4.375843852678453), # Ardèche
-    (43.88785890061108, 0.5595568148255528), # Sud-ouest/champs
+    (43.88785890061108, 0.5595568148255528), # Southwest / fields
     (45.1278081381777, -1.0510523421771456), # Médoc
-    (43.51973871166271, 0.9356166219979338) # champs sud-ouest
+    (43.51973871166271, 0.9356166219979338) # Southwest fields
  ]
 
     ########## Get the features X ##########
@@ -146,6 +146,8 @@ def train(X,y, model_type='logreg', **model_params):
 
     return train_metrics
 
+
+
 @mlflow_run
 def evaluate(X,y,model_name="logreg_model", model_type="logreg", stage="Production"):
     """
@@ -182,15 +184,15 @@ def evaluate(X,y,model_name="logreg_model", model_type="logreg", stage="Producti
 
 def rebuild_prediction(y_pred, mask_valid, fill_value=-1):
     """
-    Reconstruit une image de prédiction 300×300 à partir :
-    - y_pred (1D array : pixels valides)
-    - mask_valid (300×300 bool)
+    Reconstructs a 300×300 prediction image from: :
+    - y_pred (1D array : valid pixels)
+    - mask_valid (300×300 boolean)
     """
 
     H, W = mask_valid.shape
     y_full = np.full((H, W), fill_value, dtype=np.int64)
 
-    # Injecter les prédictions aux bonnes positions
+    # Inject the predictions into the correct positions
     y_full[mask_valid] = y_pred
 
     return y_full
@@ -202,7 +204,7 @@ def pred(X_pred, model):
     X_processed, mask_valid = preprocess_image(X_pred)
     y_pred = model.predict(X_processed).reshape(-1)
 
-    # Reconstruction image 300x300
+    # Image reconstruction 300x300
     y_pred_full = rebuild_prediction(y_pred, mask_valid)
 
     mean_urban_score = np.mean(y_pred_full[y_pred_full != -1])

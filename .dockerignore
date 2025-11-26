@@ -9,4 +9,3 @@ urban_watch.egg-info/
 *.log
 .git
 .gitignore
-Dockerfile
