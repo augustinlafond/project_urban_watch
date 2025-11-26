@@ -1,3 +1,17 @@
+"""
+Model Train/Evaluate
+
+This file provides a set of functions designed to train and evaluate
+several supervised classification models: Logistic Regression, Random Forest, and XGBoost.
+
+The script also handles splitting the dataset into training and test sets,
+computing performance metrics (precision, recall, F1-score, and accuracy),
+and producing standardized evaluation outputs.
+
+Each model has its own dedicated training function, while shared utilities ensure consistent
+evaluation, metric reporting, and reproducibility across experiments.
+"""
+
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
@@ -5,6 +19,7 @@ from sklearn.ensemble import RandomForestClassifier
 import xgboost as xgb
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 from colorama import Fore, Style
+
 
 def split_data(X, y, test_size=0.2, seed=42):
     """
@@ -47,6 +62,7 @@ def train_logreg(X_train, y_train):
     print(f"✅ Model trained : {metrics}")
     return model, metrics
 
+
 def train_random_forest(X_train, y_train):
 
     model = RandomForestClassifier(
@@ -70,6 +86,7 @@ def train_random_forest(X_train, y_train):
 
     print(f"✅ Model trained : {metrics}")
     return model, metrics
+
 
 def train_xgb(X_train, y_train):
     model = xgb.XGBClassifier(
