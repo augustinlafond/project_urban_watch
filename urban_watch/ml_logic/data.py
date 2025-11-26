@@ -1,47 +1,64 @@
+"""
+# Sentinel-2 Data Processing Utilities
+
+
+This module provides helper functions to generate bounding boxes, download Sentinel-2
+imagery from SentinelHub, preprocess bands into RGB composite images, and load previously
+saved tiles from disk. It includes:
+
+
+- Automatic generation of geographic bounding boxes (using UTM when possible)
+- Batch download of multi-band Sentinel-2 tiles
+- Image normalization and RGB extraction
+- Local storage of tiles and metadata
+- Reloading of previously downloaded datasets
+
+
+The core purpose of this module is to simplify large-scale extraction of Sentinel-2 imagery
+for geospatial machine learning workflows.
+"""
+
+
 from sentinelhub import SentinelHubRequest, DataCollection, MimeType, CRS, BBox, SHConfig, MosaickingOrder, bbox_to_dimensions
-from dotenv import load_dotenv
 from pyproj import Transformer
 import os
 import numpy as np
 import json
 import matplotlib.pyplot as plt
-import rasterio
-import folium
 from pyproj import CRS as pyCRS
 import math
-import cv2  # pour le resampling SCL
 from pathlib import Path
 import time
 from datetime import datetime, timedelta
 
 def make_bbox_global(lat, lon, km_size=5):
     """
-    Crée une bbox centrée sur (lat, lon) couvrant km_size x km_size km.
-    Utilise UTM automatiquement si applicable, sinon WGS84 ajusté.
+    Create a bounding box centered on (lat, lon) covering a km_size × km_size area.
+    Automatically uses UTM when applicable, otherwise falls back to WGS84.
 
-    Retourne : BBox SentinelHub + CRS utilisé
+    Returns: SentinelHub BBox + CRS used.
     """
 
     # 1) Tente d'utiliser l'UTM correspondant
     try:
-        # Trouve automatiquement la zone UTM
+        # Automatically find UTM zone
         utm_crs = pyCRS.from_epsg(f"326{int((lon + 180) / 6) + 1}")
         transformer = Transformer.from_crs("EPSG:4326", utm_crs, always_xy=True)
 
-        # Convertit le centre en UTM (en mètres)
+        # Convert center to UTM coordinates (meters)
         x_center, y_center = transformer.transform(lon, lat)
 
         half = (km_size * 1000) / 2
 
-        # bbox UTM en mètres
+        # UTM bbox in meters
         bbox_utm = [x_center - half, y_center - half,
                     x_center + half, y_center + half]
 
-        # Retourne la bbox et le CRS UTM correct
+        # Return bbox and UTM CRS
         return BBox(bbox_utm, CRS(utm_crs.to_epsg()))
 
     except Exception:
-        # 2) Si UTM pas disponible, fallback WGS84 approximatif
+        # 2) If no UTM available, fallback to approximate WGS84
         delta_lat = (km_size / 111) / 2
         delta_lon = (km_size / (111 * math.cos(math.radians(lat)))) / 2
 
@@ -150,31 +167,30 @@ def get_data(list_bbox, config):
 
 def download_sentinel_image(date, lon, lat, size_km, config):
     """
-    Télécharge une tuile Sentinel-2 centrée sur un point WGS84 (lon, lat)
-    dans une fenêtre carrée de size_km × size_km kilomètres.
+    Download a Sentinel-2 tile centered on a WGS84 point (lon, lat)
+    inside a square window of size_km × size_km kilometers.
 
     Args:
         date (str): "YYYY-MM-DD"
-        lon et lat: coordonnées en WGS84 du centre de la zone d'intéret
-        size_km (float): taille de la fenêtre en kilomètres
-        config: configuration SentinelHub
+        lon, lat: WGS84 coordinates of the center of the area of interest
+        size_km (float): size of the window in kilometers
+        config: SentinelHub configuration
 
     Returns:
         numpy array (H, W, 10)
     """
 
-    # --- Gestion des dates ---
+    # --- Date range handling ---
     date = datetime.strptime(date, "%Y-%m-%d")
     date_minus_15 = date - timedelta(days=15)
     date_plus_15 = date + timedelta(days=15)
 
-    # --- Conversion km → degrés approx ---
-    # 1° de latitude ≈ 111 km
-    dlat = (size_km / 2) / 111
-    # 1° de longitude dépend de la latitude
-    dlon = (size_km / 2) / (111 * np.cos(np.radians(lat)))
+    # --- Approximate km → degree conversion ---
 
-    # --- Construction de la bbox WGS84 ---
+    dlat = (size_km / 2) / 111 # 1° latitude ≈ 111 km
+    dlon = (size_km / 2) / (111 * np.cos(np.radians(lat))) # 1° longitude depend latitude
+
+    # --- Build WGS84 bbox ---
     xmin = lon - dlon
     xmax = lon + dlon
     ymin = lat - dlat
@@ -200,7 +216,7 @@ def download_sentinel_image(date, lon, lat, size_km, config):
     }
     """
 
-    # --- Requête SentinelHub ---
+    # --- SentinelHub request ---
     request = SentinelHubRequest(
         evalscript=evalscript,
         input_data=[SentinelHubRequest.input_data(
@@ -222,15 +238,15 @@ def download_sentinel_image(date, lon, lat, size_km, config):
 
 
 def image_rgb(image_sat):
-    # Extraire bandes RGB correctes
+    # Extract correct RGB bands
     B2 = image_sat[:, :, 0]   # Blue
     B3 = image_sat[:, :, 1]   # Green
     B4 = image_sat[:, :, 2]   # Red
 
-    # Pile RGB
+    # Stack RGB
     RGB = np.dstack([B4, B3, B2])
 
-    """Normalisation percentile + gamma"""
+    """Percentile normalization + gamma correction"""
     RGB = RGB.astype(float)
     RGB = (RGB - RGB.min()) / (RGB.max() - RGB.min() + 1e-6)
 
@@ -244,24 +260,24 @@ def image_rgb(image_sat):
 
 def load_data(raw_data_dir=RAW_DATA_DIR):
     """
-    Charge toutes les tuiles stockées dans raw_data/
+    Load all tiles stored in raw_data/.
 
-    Retourne :
+    Returns:
       - X : array shape (n_tiles, H, W, bands)
-      - meta : liste de dict (lat, lon, bbox, bbox_crs, ...)
+      - meta : list of dict (lat, lon, bbox, bbox_crs, ...)
     """
 
     X_list = []
     meta_list = []
 
-    # liste des dossiers raw_data/tile_XX
+    # # Iterate through raw_data/tile_XX folders
     for tile_name in sorted(os.listdir(RAW_DATA_DIR)):
         tile_dir = os.path.join(RAW_DATA_DIR, tile_name)
 
         if not os.path.isdir(tile_dir):
             continue
 
-        # charge X.npy
+        # Load X.npy
         x_path = os.path.join(tile_dir, "X.npy")
         if not os.path.exists(x_path):
             continue
@@ -269,7 +285,7 @@ def load_data(raw_data_dir=RAW_DATA_DIR):
         X = np.load(x_path)
         X_list.append(X)
 
-        # charge meta.json
+        # Load meta.json
         meta_path = os.path.join(tile_dir, "meta.json")
         if os.path.exists(meta_path):
             with open(meta_path, "r") as f:
@@ -279,7 +295,7 @@ def load_data(raw_data_dir=RAW_DATA_DIR):
 
         meta_list.append(meta)
 
-    # convertit la liste en numpy array
+    # Convert list to numpy array
     X_array = np.stack(X_list, axis=0)   # shape = (n_tiles, H, W, 10)
 
     return X_array, meta_list
