@@ -69,7 +69,6 @@ def predict(
                                          model=app.state.model)
 
     ## API response
-    breakpoint()
     return {
         "urbanization_score": float(round(mean_urban_score,2)),
         "prediction": y_pred_full.tolist(),
