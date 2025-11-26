@@ -19,17 +19,28 @@ for geospatial machine learning workflows.
 """
 
 
-from sentinelhub import SentinelHubRequest, DataCollection, MimeType, CRS, BBox, SHConfig, MosaickingOrder, bbox_to_dimensions
-from pyproj import Transformer
+# Standard library
 import os
-import numpy as np
-import json
-import matplotlib.pyplot as plt
-from pyproj import CRS as pyCRS
 import math
-from pathlib import Path
 import time
+from pathlib import Path
 from datetime import datetime, timedelta
+import json
+
+# Third-party libraries
+import numpy as np
+import matplotlib.pyplot as plt
+from pyproj import Transformer
+from pyproj import CRS as pyCRS
+from sentinelhub import (
+    SentinelHubRequest,
+    DataCollection,
+    MimeType,
+    CRS,
+    BBox,
+    MosaickingOrder,
+    bbox_to_dimensions,
+)
 
 def make_bbox_global(lat, lon, km_size=5):
     """
@@ -50,8 +61,7 @@ def make_bbox_global(lat, lon, km_size=5):
         half = (km_size * 1000) / 2
 
         # UTM bbox in meters
-        bbox_utm = [x_center - half, y_center - half,
-                    x_center + half, y_center + half]
+        bbox_utm = [x_center - half, y_center - half, x_center + half, y_center + half]
 
         # Return bbox and UTM CRS
         return BBox(bbox_utm, CRS(utm_crs.to_epsg()))
@@ -71,8 +81,8 @@ def make_bbox_global(lat, lon, km_size=5):
         return BBox(bbox_wgs, CRS.WGS84)
 
 
-
 RAW_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "features_x"
+
 
 def get_data(list_bbox, config):
 
@@ -116,15 +126,19 @@ def get_data(list_bbox, config):
         try:
             request = SentinelHubRequest(
                 evalscript=evalscript,
-                input_data=[SentinelHubRequest.input_data(
-                    DataCollection.SENTINEL2_L2A,
-                    time_interval=("2021-06-01", "2021-07-31"),
-                    mosaicking_order=MosaickingOrder.LEAST_CC,
-                )],
-                responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
+                input_data=[
+                    SentinelHubRequest.input_data(
+                        DataCollection.SENTINEL2_L2A,
+                        time_interval=("2021-06-01", "2021-07-31"),
+                        mosaicking_order=MosaickingOrder.LEAST_CC,
+                    )
+                ],
+                responses=[
+                    SentinelHubRequest.output_response("default", MimeType.TIFF)
+                ],
                 bbox=bbox,
                 resolution=(10, 10),
-                config=config
+                config=config,
             )
             image = request.get_data()[0]  # (H, W, 10)
             images.append(image)
@@ -142,8 +156,19 @@ def get_data(list_bbox, config):
                 "lon": lon,
                 "bbox": list(bbox),
                 "bbox_crs": str(bbox.crs),
-                "bands": ["B01","B02","B03","B04","B05","B06","B08","B8A","B11","B12"],
-                "resolution": 10
+                "bands": [
+                    "B01",
+                    "B02",
+                    "B03",
+                    "B04",
+                    "B05",
+                    "B06",
+                    "B08",
+                    "B8A",
+                    "B11",
+                    "B12",
+                ],
+                "resolution": 10,
             }
 
             with open(os.path.join(tile_dir, "meta.json"), "w") as f:
@@ -160,8 +185,6 @@ def get_data(list_bbox, config):
 
     print(f"\n✅ Downloaded {len(images)} images")
     return images, metadata_list
-
-
 
 
 def download_sentinel_image(date, lon, lat, size_km, config):
@@ -186,8 +209,10 @@ def download_sentinel_image(date, lon, lat, size_km, config):
 
     # --- Approximate km → degree conversion ---
 
-    dlat = (size_km / 2) / 111 # 1° latitude ≈ 111 km
-    dlon = (size_km / 2) / (111 * np.cos(np.radians(lat))) # 1° longitude depend latitude
+    dlat = (size_km / 2) / 111  # 1° latitude ≈ 111 km
+    dlon = (size_km / 2) / (
+        111 * np.cos(np.radians(lat))
+    )  # 1° longitude depend latitude
 
     # --- Build WGS84 bbox ---
     xmin = lon - dlon
@@ -218,18 +243,20 @@ def download_sentinel_image(date, lon, lat, size_km, config):
     # --- SentinelHub request ---
     request = SentinelHubRequest(
         evalscript=evalscript,
-        input_data=[SentinelHubRequest.input_data(
-            DataCollection.SENTINEL2_L2A,
-            time_interval=(
-                date_minus_15.strftime("%Y-%m-%d"),
-                date_plus_15.strftime("%Y-%m-%d")
-            ),
-            mosaicking_order=MosaickingOrder.LEAST_CC,
-        )],
+        input_data=[
+            SentinelHubRequest.input_data(
+                DataCollection.SENTINEL2_L2A,
+                time_interval=(
+                    date_minus_15.strftime("%Y-%m-%d"),
+                    date_plus_15.strftime("%Y-%m-%d"),
+                ),
+                mosaicking_order=MosaickingOrder.LEAST_CC,
+            )
+        ],
         responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
         bbox=bbox,
         size=size,
-        config=config
+        config=config,
     )
 
     image = request.get_data()[0]
@@ -238,9 +265,9 @@ def download_sentinel_image(date, lon, lat, size_km, config):
 
 def image_rgb(image_sat):
     # Extract correct RGB bands
-    B2 = image_sat[:, :, 0]   # Blue
-    B3 = image_sat[:, :, 1]   # Green
-    B4 = image_sat[:, :, 2]   # Red
+    B2 = image_sat[:, :, 0]  # Blue
+    B3 = image_sat[:, :, 1]  # Green
+    B4 = image_sat[:, :, 2]  # Red
 
     # Stack RGB
     RGB = np.dstack([B4, B3, B2])
@@ -254,7 +281,7 @@ def image_rgb(image_sat):
     RGB_stretched = np.clip((RGB - p2) / (p98 - p2), 0, 1)
 
     gamma = 0.5
-    return np.clip(RGB_stretched ** gamma, 0, 1)
+    return np.clip(RGB_stretched**gamma, 0, 1)
 
 
 def load_data(raw_data_dir=RAW_DATA_DIR):
@@ -295,6 +322,6 @@ def load_data(raw_data_dir=RAW_DATA_DIR):
         meta_list.append(meta)
 
     # Convert list to numpy array
-    X_array = np.stack(X_list, axis=0)   # shape = (n_tiles, H, W, 10)
+    X_array = np.stack(X_list, axis=0)  # shape = (n_tiles, H, W, 10)
 
     return X_array, meta_list
