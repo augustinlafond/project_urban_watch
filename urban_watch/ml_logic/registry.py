@@ -1,3 +1,18 @@
+
+"""
+# MLflow Model Management Utilities
+
+This module provides utilities for logging, saving, and loading machine learning models and their metrics with MLflow.
+
+Main functionalities:
+
+- **Model Logging**: Save trained `LogisticRegression`, `RandomForestClassifier`, or `XGBClassifier` models to MLflow, optionally registering them.
+- **Results Logging**: Log hyperparameters and evaluation metrics to MLflow.
+- **Run Wrapper**: Decorator (`mlflow_run`) to automatically log parameters, metrics, and models during a function run.
+- **Model Loading**: Retrieve a trained model from MLflow given its name, type, and deployment stage.
+
+"""
+
 import os
 import pickle
 from urban_watch.params import *
