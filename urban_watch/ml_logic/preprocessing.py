@@ -1,13 +1,27 @@
-from sentinelhub import SentinelHubRequest, DataCollection, MimeType, CRS, BBox, SHConfig
-from pyproj import Transformer
-from dotenv import load_dotenv
-import os
+"""
+# Sentinel-2 Image Preprocessing Pipeline
+
+This module provides a complete pipeline to process Sentinel-2 satellite images for urban
+analysis. It includes:
+
+- **Index Calculation**: Compute spectral indices such as NDVI, NDBI, NDWI, and MNDWI
+to identify vegetation, built-up areas, and water.
+- **Image Normalization**: Normalize image bands using min-max, percentile-based
+methods, and gamma correction for consistent brightness and contrast.
+- **Cloud Masking**: Detect and mask clouds using `s2cloudless`.
+- **Data Cleaning**: Normalize and standardize bands, handle NaNs, and prepare the data
+for machine learning.
+- **Full Preprocessing Pipeline**: Combines all steps to transform raw Sentinel-2 tiles into
+a clean feature matrix (`X`) and corresponding labels (`y`) for urban vs non-urban classification.
+"""
+
+
+# Standard libraries
+from typing import Optional
+# Third-party libraries
 import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
-from dataclasses import dataclass
-from typing import Tuple, Optional
 from s2cloudless import S2PixelCloudDetector
+
 
 #__________________________________
 #class 1, IndexCalculator /calculate spectral (NDVI, NDBI and others)
