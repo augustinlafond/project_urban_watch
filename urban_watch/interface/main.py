@@ -37,7 +37,7 @@ from urban_watch.ml_logic.model import (
     train_random_forest,
     train_xgb,
     evaluate_model,
-    tune_random_forest
+    tune_xgboost
 )
 from urban_watch.ml_logic.registry import (
     save_model,
@@ -45,6 +45,8 @@ from urban_watch.ml_logic.registry import (
     mlflow_run,
     load_model,
 )
+
+import xgboost as xgb
 
 
 #   MAIN FUNCTIONS CALLED BY CLI
@@ -173,8 +175,8 @@ def full_preproc_pipeline():
 MODEL_DISPATCHER = {
     "logreg": train_logreg,
     "random_forest": train_random_forest,
-    "random_forest_tuned": tune_random_forest,
     "xgb": train_xgb,
+    "xgb_tuned": tune_xgboost
 }
 
 
@@ -250,9 +252,18 @@ def rebuild_prediction(y_pred, mask_valid, fill_value=-1):
 
 
 def pred(X_pred, model):
-
+    # Step 1 — preprocess image
     X_processed, mask_valid = preprocess_image(X_pred)
-    y_pred = model.predict(X_processed).reshape(-1)
+
+    # Step 2 — Convertir en DMatrix si modèle = Booster
+    if isinstance(model, xgb.Booster):
+        dmatrix = xgb.DMatrix(X_processed)
+        y_pred = (model.predict(dmatrix) > 0.5).astype(int)
+    else:
+        # Cas XGBClassifier (rare)
+        y_pred = model.predict(X_processed)
+
+    y_pred = y_pred.reshape(-1)
 
     # Image reconstruction 300x300
     y_pred_full = rebuild_prediction(y_pred, mask_valid)

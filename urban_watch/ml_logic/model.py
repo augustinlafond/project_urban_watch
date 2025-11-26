@@ -22,7 +22,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
-from scipy.stats import randint
+from scipy.stats import randint, uniform
 
 # XGBoost
 import xgboost as xgb
@@ -112,54 +112,6 @@ def train_xgb(X_train, y_train):
 
 
 
-def tune_random_forest(X_train, y_train):
-
-    param_dist = {
-        "n_estimators": randint(200, 800),
-        "max_depth": randint(10, 40),
-        "min_samples_split": randint(2, 10),
-        "min_samples_leaf": randint(1, 5),
-        "max_features": ["sqrt", "log2"],
-        "class_weight": [None, {0:1, 1:3}, {0:1, 1:5}]
-    }
-
-    rnd = RandomizedSearchCV(
-        RandomForestClassifier(),
-        param_distributions=param_dist,
-        n_iter=30,  # très bon compromis
-        scoring="recall",
-        n_jobs=-1,
-        cv=3,
-        verbose=2,
-        random_state=42
-    )
-
-    rnd.fit(X_train, y_train)
-
-    model = rnd.best_estimator_
-
-    y_train_pred = model.predict(X_train)
-    train_precision = precision_score(y_train, y_train_pred)
-    train_recall = recall_score(y_train, y_train_pred)
-    train_f1 = f1_score(y_train, y_train_pred)
-    train_accuracy = accuracy_score(y_train, y_train_pred)
-
-    metrics = dict(
-        precision_train=train_precision,
-        recall_train=train_recall,
-        f1_train=train_f1,
-        accuracy_train=train_accuracy,
-    )
-
-    print("\n🌟 Best parameters:", rnd.best_params_)
-    print("🏆 Best score:", rnd.best_score_)
-
-    return model, metrics
-
-
-
-
-
 def evaluate_model(model, X_test, y_test):
     """
     Evaluate trained model performance on the dataset
@@ -188,3 +140,72 @@ def evaluate_model(model, X_test, y_test):
     print(f"✅ Model evaluated : {metrics}")
 
     return metrics
+
+
+
+def tune_xgboost(X_train, y_train, n_iter=25):
+    """
+    XGBoost random search optimized for speed on large tabular satellite data.
+    """
+
+    # -----------------------------
+    # Hyperparameter distributions
+    # -----------------------------
+    param_dist = {
+        "n_estimators": randint(200, 800),         # nb d’arbres
+        "max_depth": randint(4, 12),               # profondeur limitée pour éviter overfitting
+        "learning_rate": uniform(0.01, 0.2),       # lr assez large
+        "subsample": uniform(0.6, 0.4),            # 0.6–1.0
+        "colsample_bytree": uniform(0.6, 0.4),     # 0.6–1.0
+        "gamma": uniform(0, 5),                    # réduction variance
+        "min_child_weight": randint(1, 8),         # regularisation
+        "reg_alpha": uniform(0, 1),                # L1
+        "reg_lambda": uniform(0.5, 1.5),           # L2
+    }
+
+    # -----------------------------
+    # XGBoost model
+    # -----------------------------
+    xgb = xgb.XGBClassifier(
+        objective="binary:logistic",
+        eval_metric="logloss",
+        tree_method="hist",     # ⚡ FAST
+        max_bin=256,            # meilleur compromis précision/temps
+        n_jobs=-1,              # multi-core
+        random_state=42
+    )
+
+    # -----------------------------
+    # Randomized Search
+    # -----------------------------
+    rnd = RandomizedSearchCV(
+        estimator=xgb,
+        param_distributions=param_dist,
+        n_iter=n_iter,          # 25 iterations = ~1–3h selon machine
+        scoring="recall",       # priorité : max recall
+        cv=3,                   # 3 folds = rapide et fiable
+        verbose=2,
+        random_state=42
+    )
+
+    rnd.fit(X_train, y_train)
+
+    model = rnd.best_estimator_
+
+    y_train_pred = model.predict(X_train)
+    train_precision = precision_score(y_train, y_train_pred)
+    train_recall = recall_score(y_train, y_train_pred)
+    train_f1 = f1_score(y_train, y_train_pred)
+    train_accuracy = accuracy_score(y_train, y_train_pred)
+
+    metrics = dict(
+        precision_train=train_precision,
+        recall_train=train_recall,
+        f1_train=train_f1,
+        accuracy_train=train_accuracy,
+    )
+
+    print("\n🌟 Best parameters:", rnd.best_params_)
+    print("🏆 Best score:", rnd.best_score_)
+
+    return model, metrics
