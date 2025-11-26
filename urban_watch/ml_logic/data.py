@@ -39,7 +39,6 @@ def make_bbox_global(lat, lon, km_size=5):
     Returns: SentinelHub BBox + CRS used.
     """
 
-    # 1) Tente d'utiliser l'UTM correspondant
     try:
         # Automatically find UTM zone
         utm_crs = pyCRS.from_epsg(f"326{int((lon + 180) / 6) + 1}")
