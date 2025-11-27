@@ -52,7 +52,7 @@ def root():
 
 
 app.state.model = load_model(
-    model_name="random_forest_model", model_type="RandomForest", stage="Production"
+    model_name="xgb_model", model_type="XGB", stage="Production"
 )
 
 
