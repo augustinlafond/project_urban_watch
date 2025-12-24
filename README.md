@@ -2,6 +2,9 @@
 
 UrbanWatch is a data science and AI project that automatically detects urban artificialization using Sentinel-2 satellite images (10 m resolution). It relies on: a robust pipeline for downloading and preprocessing SentinelHub data, the ESA WorldCover 2021 layer as ground truth, an XGBoost model trained on more than 9 million pixels, a FastAPI API that can be used to request an artificialization prediction for any area in the world and returns an average urbanization score for that area as well as the predicted image composed of urban pixels (value 1) and non-urban pixels (value 0).
 
+🎥 **Project pitch & demo (Le Wagon Demo Day)**  
+[Watch the pitch and live demo](https://www.youtube.com/watch?v=FckypTvmKao)
+
 📌 Objective
 
 The objective of the project is to produce a model capable of predicting an average urbanization score and an urbanization map from a Sentinel-2 tile centered around a GPS point. The final pipeline allows: automatic downloading of Sentinel-2 satellite images, application of an s2cloudless cloud mask, calculation of spectral indices (NDVI, NDBI, MNDWI, etc.), standardize and flatten each pixel into a vector, associate each pixel with its urban vs. non-urban class using the model, generate a complete map of the model's predictions and an average urbanization score for the area, and expose everything in an API that allows the model to be queried.
