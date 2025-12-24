@@ -1,105 +1,98 @@
-🛰️ UrbanWatch – Détection de l’artificialisation urbaine à partir d’images Sentinel-2
+🛰️ UrbanWatch – Detecting urban artificialization using Sentinel-2 images
 
-UrbanWatch est un projet de data science et d’IA permettant de détecter automatiquement l’artificialisation urbaine à partir d’images satellite Sentinel-2 (résolution 10 m).
-Il s’appuie sur :
-un pipeline robuste de téléchargement & prétraitement des données SentinelHub,
-la couche ESA WorldCover 2021 comme vérité-terrain,
-un modèle Random Forest entraîné sur X millions de pixels,
-une API FastAPI permettant de demander une prédiction d’artificialisation à n’importe quelle coordonnée GPS.
+UrbanWatch is a data science and AI project that automatically detects urban artificialization using Sentinel-2 satellite images (10 m resolution). It relies on: a robust pipeline for downloading and preprocessing SentinelHub data, the ESA WorldCover 2021 layer as ground truth, an XGBoost model trained on more than 9 million pixels, a FastAPI API that can be used to request an artificialization prediction for any area in the world and returns an average urbanization score for that area as well as the predicted image composed of urban pixels (value 1) and non-urban pixels (value 0).
+
+📌 Objective
+
+The objective of the project is to produce a model capable of predicting an average urbanization score and an urbanization map from a Sentinel-2 tile centered around a GPS point. The final pipeline allows: automatic downloading of Sentinel-2 satellite images, application of an s2cloudless cloud mask, calculation of spectral indices (NDVI, NDBI, MNDWI, etc.), standardize and flatten each pixel into a vector, associate each pixel with its urban vs. non-urban class using the model, generate a complete map of the model's predictions and an average urbanization score for the area, and expose everything in an API that allows the model to be queried.
 
 
-📌 Objectif
+📦 Project architecture
 
-L’objectif du projet est de produire un modèle capable de prédire la probabilité d’artificialisation (bâti) à partir d’une tuile Sentinel-2 centrée autour d’un point GPS.
-Le pipeline final permet :
-de télécharger automatiquement les images satellite Sentinel-2,
-d’appliquer un cloud-mask s2cloudless,
-de calculer des indices spectraux (NDVI, NDBI, MNDWI…),
-de standardiser et flatten chaque pixel en vecteur,
-d’associer chaque pixel à sa classe ESA WorldCover (bâtis, eau, végétation…),
-de transformer la tâche en binaire : urbain (=50) vs non-urbain,
-d’entraîner un modèle Random Forest sur X millions de pixels,
-de restituer une carte complète des prédictions du modèle et un score d'urbanisation moyen sur la zone,
-d’exposer le tout dans une API permettant d’interroger le modèle.
-
-📦 Architecture du projet
-
-urban_watch/
 ```text
+urban_watch/
 ├── ml_logic/
-│   ├── data.py               # Téléchargement SentinelHub, loading, metadata
-│   ├── preprocessing.py      # Cloud mask, indices NDVI / NDBI / MNDWI, normalisation
-│   ├── labels.py             # Conversion WorldCover, reprojection, cropping
-│   ├── model.py              # Entraînement, prédiction, évaluation
-│   ├── registry.py           # Tracking MLflow
+│   ├── data.py               # SentinelHub download, loading, metadata
+│   ├── preprocessing.py      # Cloud mask, NDVI / NDBI / MNDWI indices, normalization
+│   ├── labels.py             # WorldCover conversion, reprojection, cropping
+│   ├── model.py              # Training, prediction, evaluation
+│   ├── registry.py           # MLflow tracking
 │
 ├── interface/
-│   ├── main.py               # Orchestration : full pipeline, training, prediction
+│   ├── main.py               # Orchestration: full pipeline, training, prediction
 │
 ├── api/
-│   ├── api.py                # Serveur FastAPI pour prédictions en temps réel
+│   ├── api.py                # FastAPI server for real-time predictions
 │
 ├── data/
-│   ├── features_x/           # Images Sentinel-2 téléchargées
-│   ├── labels_y/             # Tuiles WorldCover reprojetées
+│   ├── features_x/           # Downloaded Sentinel-2 images
+│   ├── labels_y/             # Reprojected WorldCover tiles
 │
 ├── requirements.txt
 └── README.md
 ```
 
-🚀 Méthodologie
+🚀 Methodology
 
-1. 🛰️ Téléchargement Sentinel-2 (SentinelHub)
-Pour chaque coordonnée GPS, une bbox 5 km × 5 km est générée, puis :
-SentinelHubRequest (SENTINEL2_L2A)
-Résolution : 10 m
-MosaickingOrder : LEAST_CLOUD_COVERAGE
-10 bandes Sentinel-2 récupérées (B01, B02, B03, … B12)
-Les données brutes sont sauvegardées en .npy.
+1. 🛰️ Sentinel-2 download (SentinelHub)
+
+For each GPS coordinate, a 5 km × 5 km bbox is generated. Then the satellite image is downloaded via SentinelHub API with the following parameters :
+
+- SentinelHubRequest (SENTINEL2_L2A)
+- Resolution: 10 m
+- MosaickingOrder: LEAST_CLOUD_COVERAGE
+- The 10 Sentinel-2 bands are retrieved (B01, B02, B03, … B12).
+
+The raw data is saved in .npy format.
 
 2. ☁️ Cloud masking (s2cloudless)
-Un masque nuageux est généré et les pixels nuageux sont retirés.
+   
+A cloud mask is generated and cloudy pixels are removed.
 
-3. 🧮 Calcul des indices spectraux
-Trois indices essentiels sont ajoutés :
-NDVI – végétation
-NDBI – zones urbaines
-MNDWI – eau et surfaces humides
-→ L’image passe de 10 à 13 bandes.
+3. 🧮 Calculation of spectral indices
 
-4. ⚙️ Normalisation & flattening
-Chaque image :
-est normalisée bande-par-bande (min-max / standardisation),
-est convertie en un tableau 2D de forme :
-N_pixels_valides × 13 bandes
+Three essential indices are added:
+- NDVI – vegetation
+- NDBI – urban areas
+- MNDWI – water and wetlands
+→ The image goes from 10 to 13 bands.
 
-5. 🏷️ Construction des labels (WorldCover 2021)
-Chaque bbox est convertie :
-des CRS Sentinel-2 → WGS84,
-découpée dans la tuile ESA correspondante,
-reprojetée dans le CRS Sentinel-2 de la tuile X
-(d’où l’apparition naturelle de quelques 0 = NoData qui sont à leur tour retirés sur y et sur X).
-Les valeurs WorldCover sont ensuite converties :
-50 = Built-up → 1
-tout le reste → 0
+4. ⚙️ Normalization & flattening
 
+Each image:
+- is normalized band-by-band (min-max/standardization),
+- is converted into a 2D table with the following format: N_valid_pixels × 13 bands
 
-6. 🤖 Modélisation : Random Forest
-plus de X millions pixels utilisés pour l’entraînement
-Features : 13 valeurs par pixel
-Target : urbain vs non-urbain (binaire)
-Le modèle final est enregistré sous MLflow, puis déployé dans l’API.
+5. 🏷️ Label construction (WorldCover 2021)
 
+Each bbox is converted:
+- from Sentinel-2 CRS → WGS84,
+- cut out from the corresponding ESA tile,
+- reprojected into the Sentinel-2 CRS of tile X (hence the natural appearance of a few -1 = NoData values, which are in turn removed from y and X).
+- The WorldCover values are then converted:
+Urban → 1
+Non-urban → 0
 
-🔮 API FastAPI
+6. 🤖 Modeling: XGBoost
 
-L’API expose un endpoint permettant de :
-téléchager une image Sentinel-2 autour d’un point GPS,
-lancer le pipeline de preprocessing,
-produire une prédiction,
-renvoyer un score d’artificialisation moyen.
-Endpoint principal
+- More than 9 million pixels used for training
+- Features: 13 values per pixel
+- Target: urban vs. non-urban (binary)
+
+The final model is saved in MLflow, then deployed in the API.
+
+🔮 FastAPI API
+
+The API exposes an endpoint that allows you to:
+- download a Sentinel-2 image around a GPS point,
+- launch the preprocessing pipeline,
+- produce a prediction,
+- return an average artificialization score.
+
+Main endpoint:
+```text
 GET /predict?lon=5.4389&lat=43.5306&date=2021-06-15&size_km=3
+```
 Réponse :
 ```text
 {
@@ -109,42 +102,48 @@ Réponse :
 }
 ```
 
-🧪 Reproductibilité
+🧪 Reproducibility
 
 Installation
+
 ```text
 pip install -r requirements.txt
 ```
-Variables d’environnement
-Créer un .env :
+Environment variables
+
+Create a .env file:
+
 ```text
-SH_CLIENT_ID=xxx
-SH_CLIENT_SECRET=xxx
+SH_CLIENT_ID=xxx       #SentinelHub client ID
+SH_CLIENT_SECRET=xxx   #SentinelHub client secret
 BUCKET_NAME=...
 GCP_PROJECT=...
 ```
-Exécuter la pipeline complète
+
+Run the complete pipeline
+
 ```text
 from urban_watch.interface.main import full_preproc_pipeline
 X, y = full_preproc_pipeline()
 ```
-Entraîner le modèle
+
+Train the model
 ```text
 from urban_watch.interface.main import train
-train(model_name="random_forest_model")
+train(X,y, model_type="xgb_tuned")
 ```
-Lancer l’API
+
+Launch the API
 ```text
 uvicorn api.api:app --reload
 ```
 
+📈 Results
 
-📈 Résultats
-
-Le modèle Random Forest atteint :
+The XGBoost model achieves:
 ```text
-Précision : 
-Recall : 
-F1-score : 
-Accuracy :
+Précision : 0.84
+Recall : 0.83
+F1-score : 0.84
+Accuracy : 0.91
 ```
