@@ -181,7 +181,7 @@ MODEL_DISPATCHER = {
 
 
 @mlflow_run
-def train(X, y, model_type="logreg", **model_params):
+def train(X, y, model_type="xgb_tuned", **model_params):
     """
     - Train on the preprocessed X and y
     - Store training results and model weights
@@ -208,7 +208,7 @@ def train(X, y, model_type="logreg", **model_params):
 
 
 @mlflow_run
-def evaluate(X, y, model_name="logreg_model", model_type="logreg", stage="Production"):
+def evaluate(X, y, model_name="xgb_model", model_type="XGB", stage="Production"):
     """
     Evaluate the performance of the latest production model on processed data
     Return a dictionary with the metrics (i.e. precision, recall, f1, accuracy)
